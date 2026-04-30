@@ -5,4 +5,3 @@ export default defineConfig({
   base: '/taelimelectronics/',  // process.env.VERCEL ? '/' : '/taelimelectronics/',
   plugins: [react()],
 })
-
