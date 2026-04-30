@@ -1,0 +1,9 @@
+{
+  "builds": [
+    {
+      "src": "taelim-mgmt/package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "outputDirectory": "taelim-mgmt/dist"
+}
