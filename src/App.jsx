@@ -2,7 +2,7 @@ import { useState, Fragment, useEffect, useRef } from "react";
 import { auth, db } from './firebase';
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  signOut, onAuthStateChanged
+  signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup
 } from 'firebase/auth';
 import {
   doc, setDoc, getDoc, collection, addDoc,
@@ -449,10 +449,12 @@ function RegisterPage({ onBack, onDone }) {
 }
 
 // ─── Login ────────────────────────────────────────────────────
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onGoogleLogin }) {
   const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
   const [err,setErr]=useState(''); const [loading,setLoading]=useState(false);
+  const [gLoading,setGLoading]=useState(false);
   const [showReg,setShowReg]=useState(false);
+
   const go=async()=>{
     if(!email.trim()||!pw){ setErr('이메일과 비밀번호를 입력하세요.'); return; }
     setLoading(true); setErr('');
@@ -460,79 +462,73 @@ function LoginPage({ onLogin }) {
     if(!result.ok){ setErr(result.error||'로그인 실패'); setPw(''); }
     setLoading(false);
   };
-  const features=[['📊','관리비 청구'],['⚡','검침 관리'],['📋','전자결재'],['🚨','긴급호출'],['📄','전표'],['📅','출퇴근'],['🔥','비상연락망'],['📑','계약서 관리']];
+  const googleGo=async()=>{
+    setGLoading(true); setErr('');
+    const result=await onGoogleLogin();
+    if(!result?.ok){ setErr(result?.error||'Google 로그인 실패'); }
+    setGLoading(false);
+  };
+
+  const inp={ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.07)', border:'1.5px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s' };
 
   if(showReg) return <RegisterPage onBack={()=>setShowReg(false)} />;
+
   return (
-    <div style={{ display:'flex', minHeight:'100vh', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', overflow:'hidden' }}>
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', padding:'20px', boxSizing:'border-box' }}>
       {/* 배경 */}
-      <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 40%,#0a1628 100%)' }} />
-      <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px' }} />
-      <div style={{ position:'absolute', top:'15%', left:'15%', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.1) 0%,transparent 65%)', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', bottom:'10%', right:'15%', width:320, height:320, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.07) 0%,transparent 65%)', pointerEvents:'none' }} />
+      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 50%,#0a1628 100%)', zIndex:0 }} />
+      <div style={{ position:'fixed', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px', zIndex:0 }} />
+      <div style={{ position:'fixed', top:'10%', left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.12) 0%,transparent 65%)', pointerEvents:'none', zIndex:0 }} />
+      <div style={{ position:'fixed', bottom:'10%', right:'10%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.08) 0%,transparent 65%)', pointerEvents:'none', zIndex:0 }} />
 
-      {/* 왼쪽 패널 - 브랜딩 */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'60px 64px', position:'relative', zIndex:1, minWidth:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:32 }}>
-          <TLLogoHero size={68} />
-          <div>
-            <div style={{ color:'#fff', fontSize:24, fontWeight:900, letterSpacing:'-0.5px', lineHeight:1.2 }}>태림전자공업㈜</div>
-            <div style={{ color:'rgba(255,255,255,0.4)', fontSize:10, letterSpacing:'2.5px', marginTop:5, textTransform:'uppercase' }}>TAE LIM ELECTRONICS CO., LTD.</div>
-          </div>
+      {/* 카드 */}
+      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(255,255,255,0.03)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.4)' }}>
+        {/* 로고 + 회사명 */}
+        <div style={{ textAlign:'center', marginBottom:32 }}>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogoHero size={60} /></div>
+          <div style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
+          <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.35)', letterSpacing:'2px', marginTop:4, textTransform:'uppercase' }}>Management System v3.0</div>
         </div>
-        <div style={{ color:'rgba(255,255,255,0.6)', fontSize:13.5, lineHeight:2, marginBottom:36, maxWidth:400 }}>
-          구로디지털단지 통합 건물 관리 플랫폼.<br/>
-          관리비 청구부터 전자결재, 긴급호출까지<br/>
-          하나의 시스템에서 모두 관리합니다.
-        </div>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:8, maxWidth:460 }}>
-          {features.map(([icon,label])=>(
-            <div key={label} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', gap:7, transition:'background 0.2s' }}>
-              <span style={{ fontSize:14 }}>{icon}</span>
-              <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.55)', fontWeight:500 }}>{label}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop:'auto', paddingTop:60, fontSize:10.5, color:'rgba(255,255,255,0.18)', lineHeight:1.9 }}>
-          <div>{CO_ADDR}</div>
-          <div>Tel: {CO_TEL} · Fax: {CO_FAX}</div>
-        </div>
-      </div>
 
-      {/* 오른쪽 패널 - 로그인 */}
-      <div style={{ width:420, background:'rgba(255,255,255,0.02)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', borderLeft:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', padding:'48px 40px', position:'relative', zIndex:1 }}>
-        <div style={{ width:'100%' }}>
-          <div style={{ textAlign:'center', marginBottom:36 }}>
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}><TLLogoHero size={52} /></div>
-            <div style={{ fontSize:22, fontWeight:800, color:'#fff', letterSpacing:'-0.3px' }}>로그인</div>
-            <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.35)', marginTop:5 }}>관리 시스템에 접속합니다</div>
-          </div>
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>이메일</div>
-            <input type="email" placeholder="이메일 주소" value={email}
-              onChange={e=>{setEmail(e.target.value);setErr('');}}
-              onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none' }} />
-          </div>
-          <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>비밀번호</div>
-            <input type="password" placeholder="비밀번호" value={pw}
-              onChange={e=>{setPw(e.target.value);setErr('');}}
-              onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none' }} />
-            {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6 }}>⚠ {err}</div>}
-          </div>
-          <button onClick={go} disabled={loading}
-            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 24px rgba(99,102,241,0.45)', marginBottom:12 }}>
-            {loading?'로그인 중…':'로그인'}
-          </button>
-          <button onClick={()=>setShowReg(true)}
-            style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px', fontSize:13, color:'rgba(255,255,255,0.45)', cursor:'pointer' }}>
-            계정이 없으신가요? 회원가입
-          </button>
-          <div style={{ textAlign:'center', marginTop:16, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
-            v3.0 · © {new Date().getFullYear()} TAE LIM ELECTRONICS
-          </div>
+        {/* Google 로그인 */}
+        <button onClick={googleGo} disabled={gLoading}
+          style={{ width:'100%', background:'#fff', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:600, color:'#1a1a1a', cursor:gLoading?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.2)', boxSizing:'border-box' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+          {gLoading?'연결 중…':'Google로 로그인'}
+        </button>
+
+        {/* 구분선 */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.08)' }} />
+          <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.3)' }}>또는 이메일로</span>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.08)' }} />
+        </div>
+
+        {/* 이메일/비밀번호 */}
+        <div style={{ marginBottom:10 }}>
+          <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>이메일</div>
+          <input type="email" placeholder="example@email.com" value={email}
+            onChange={e=>{setEmail(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
+            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}` }} />
+        </div>
+        <div style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>비밀번호</div>
+          <input type="password" placeholder="비밀번호" value={pw}
+            onChange={e=>{setPw(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
+            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}` }} />
+          {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
+        </div>
+
+        <button onClick={go} disabled={loading}
+          style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 20px rgba(99,102,241,0.4)', marginBottom:12, boxSizing:'border-box' }}>
+          {loading?'로그인 중…':'로그인'}
+        </button>
+        <button onClick={()=>setShowReg(true)}
+          style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px', fontSize:13, color:'rgba(255,255,255,0.5)', cursor:'pointer', boxSizing:'border-box' }}>
+          계정이 없으신가요? 회원가입
+        </button>
+        <div style={{ textAlign:'center', marginTop:16, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
+          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.
         </div>
       </div>
     </div>
@@ -3946,7 +3942,37 @@ export default function App() {
   const handleSetTenants=(t)=>{ setTenants(t); store.set('tl_tenants',t); };
   const pendingCount=(store.get('tl_approvals')||[]).filter(a=>a.status==='pending').length;
 
-  if(!loggedIn) return <LoginPage onLogin={handleLogin} />;
+  const handleGoogleLogin=async()=>{
+    try {
+      const provider=new GoogleAuthProvider();
+      const cred=await signInWithPopup(auth,provider);
+      let snap=await getDoc(doc(db,'users',cred.user.uid));
+      if(!snap.exists()){
+        // 첫 구글 로그인 → 자동 프로필 생성
+        const allSnap=await getDocs(collection(db,'users'));
+        const isFirst=allSnap.empty;
+        const empNo=`EMP-${String(allSnap.size+1).padStart(3,'0')}`;
+        const profile={ name:cred.user.displayName||cred.user.email, email:cred.user.email,
+          dept:'', role:isFirst?'master':'pending', approved:isFirst, empNo,
+          createdAt:new Date().toISOString() };
+        await setDoc(doc(db,'users',cred.user.uid),profile);
+        if(!isFirst){ await signOut(auth); return {ok:false,error:'첫 Google 로그인 완료! 관리자 승인 후 이용 가능합니다.'}; }
+        snap=await getDoc(doc(db,'users',cred.user.uid));
+      }
+      const profile=snap.data();
+      if(!profile.approved){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다.'}; }
+      setRole(profile.role||'staff');
+      setUserProfile(profile);
+      store.set('tl_user_name',profile.name||cred.user.email);
+      setLoggedIn(true);
+      return {ok:true};
+    } catch(e){
+      if(e.code==='auth/popup-closed-by-user') return {ok:false,error:'로그인 창이 닫혔습니다.'};
+      return {ok:false,error:e.message};
+    }
+  };
+
+  if(!loggedIn) return <LoginPage onLogin={handleLogin} onGoogleLogin={handleGoogleLogin} />;
   const calc=calcAll(reading);
 
   return (
