@@ -302,7 +302,7 @@ function LoginPage({ onLogin }) {
         <div style={{ textAlign:'center', marginBottom:28 }}>
           <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogo size={52} /></div>
           <div style={{ fontSize:17, fontWeight:700, color:C.navyDark, letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:12, color:C.textSub, marginTop:4 }}>관리비 청구 시스템 v6.0</div>
+          <div style={{ fontSize:12, color:C.textSub, marginTop:4 }}>관리비 청구 시스템 v2.0</div>
         </div>
         <input type="password" placeholder="비밀번호" value={pw} onChange={e=>{setPw(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
           style={{ ...baseInput, background:'#F8FAFC', padding:'11px 14px', fontSize:14, marginBottom:8, border:`1.5px solid ${err?C.red:C.border}` }} />
@@ -2439,7 +2439,7 @@ function PageFooter() {
         <div style={{ marginBottom:3, fontSize:11 }}>{CO_ADDR}</div>
         <div style={{ marginBottom:10, fontSize:11 }}>Tel: {CO_TEL}&nbsp;&nbsp;|&nbsp;&nbsp;Fax: {CO_FAX}</div>
         <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:10, fontSize:10, color:'rgba(255,255,255,0.3)' }}>
-          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v6.1
+          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v2.0
         </div>
       </div>
     </footer>
