@@ -1,4 +1,13 @@
 import { useState, Fragment, useEffect, useRef } from "react";
+import { auth, db } from './firebase';
+import {
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged
+} from 'firebase/auth';
+import {
+  doc, setDoc, getDoc, collection, addDoc,
+  query, orderBy, onSnapshot, updateDoc, where, getDocs, serverTimestamp, deleteDoc
+} from 'firebase/firestore';
 
 const DEFAULT_PASSWORD = "taelim2024";
 const CO_ADDR = "우08377 서울특별시 구로구 디지털로 33길 58";
@@ -332,11 +341,128 @@ function DdayBadge({ dateStr }) {
   return <span style={{ display:'inline-block', padding:'3px 11px', borderRadius:20, fontSize:12, fontWeight:700, background:bg, color, border:`1px solid ${brd}` }}>{label}</span>;
 }
 
+// ─── Register Page ────────────────────────────────────────────
+function RegisterPage({ onBack, onDone }) {
+  const [form,setForm]=useState({name:'',email:'',password:'',pw2:'',dept:''});
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [done,setDone]=useState(false);
+
+  const submit=async()=>{
+    if(!form.name.trim()||!form.email.trim()||!form.password){ setErr('이름, 이메일, 비밀번호를 모두 입력하세요.'); return; }
+    if(form.password!==form.pw2){ setErr('비밀번호가 일치하지 않습니다.'); return; }
+    if(form.password.length<6){ setErr('비밀번호는 6자 이상이어야 합니다.'); return; }
+    setLoading(true); setErr('');
+    try {
+      // 첫 번째 사용자인지 확인
+      const snap=await getDocs(collection(db,'users'));
+      const isFirst=snap.empty;
+      const cred=await createUserWithEmailAndPassword(auth,form.email.trim(),form.password);
+      const empNo=`EMP-${String(snap.size+1).padStart(3,'0')}`;
+      const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
+        role:isFirst?'master':'pending', approved:isFirst, empNo,
+        createdAt:new Date().toISOString() };
+      await setDoc(doc(db,'users',cred.user.uid),profile);
+      // 첫 사용자 아니면 로그아웃 후 승인 대기
+      if(!isFirst){ await signOut(auth); }
+      // Telegram 알림
+      const tgToken=store.get('tl_telegram_token');
+      const tgAdmin=store.get('tl_telegram_admin');
+      if(tgToken&&tgAdmin&&!isFirst){
+        await sendTelegram(tgToken,tgAdmin,`👤 <b>새 회원가입 요청</b>\n\n이름: ${form.name}\n이메일: ${form.email}\n부서: ${form.dept||'미입력'}\n사번: ${empNo}\n\n관리자 설정에서 승인해주세요.`);
+      }
+      setDone(true);
+      if(isFirst) onDone?.();
+    } catch(e){
+      const msg={'auth/email-already-in-use':'이미 사용 중인 이메일입니다.','auth/invalid-email':'이메일 형식이 올바르지 않습니다.'};
+      setErr(msg[e.code]||e.message);
+    }
+    setLoading(false);
+  };
+
+  const features=[['📊','관리비 청구'],['⚡','검침 관리'],['📋','전자결재'],['🚨','긴급호출'],['📄','전표'],['📅','출퇴근']];
+
+  if(done) return (
+    <div style={{ display:'flex', minHeight:'100vh', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#06061a,#0f0f2e,#0a1628)', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif" }}>
+      <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, padding:'48px 40px', width:380, textAlign:'center' }}>
+        <div style={{ fontSize:48, marginBottom:20 }}>✅</div>
+        <div style={{ fontSize:20, fontWeight:800, color:'#fff', marginBottom:10 }}>가입 요청 완료!</div>
+        <div style={{ fontSize:13, color:'rgba(255,255,255,0.5)', lineHeight:1.9, marginBottom:28 }}>
+          관리자 승인 후 로그인 가능합니다.<br/>대표님께 문의해 주세요.
+        </div>
+        <button onClick={onBack} style={{ background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'13px 32px', fontSize:14, fontWeight:700, color:'#fff', cursor:'pointer' }}>로그인으로 돌아가기</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', minHeight:'100vh', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', overflow:'hidden' }}>
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 40%,#0a1628 100%)' }} />
+      <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px' }} />
+
+      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'60px 64px', position:'relative', zIndex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:32 }}>
+          <TLLogoHero size={64} />
+          <div>
+            <div style={{ color:'#fff', fontSize:22, fontWeight:900, letterSpacing:'-0.5px' }}>태림전자공업㈜</div>
+            <div style={{ color:'rgba(255,255,255,0.35)', fontSize:10, letterSpacing:'2px', marginTop:4, textTransform:'uppercase' }}>TAE LIM ELECTRONICS CO., LTD.</div>
+          </div>
+        </div>
+        <div style={{ color:'rgba(255,255,255,0.5)', fontSize:13, lineHeight:2, marginBottom:32 }}>
+          직원 계정을 만들어 시스템에 접근하세요.<br/>가입 후 관리자 승인이 필요합니다.
+        </div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+          {features.map(([icon,label])=>(
+            <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'7px 13px', display:'flex', alignItems:'center', gap:7 }}>
+              <span style={{ fontSize:13 }}>{icon}</span>
+              <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)' }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ width:440, background:'rgba(255,255,255,0.02)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', borderLeft:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', padding:'40px', position:'relative', zIndex:1, overflowY:'auto' }}>
+        <div style={{ width:'100%' }}>
+          <div style={{ textAlign:'center', marginBottom:28 }}>
+            <div style={{ fontSize:22, fontWeight:800, color:'#fff' }}>회원가입</div>
+            <div style={{ fontSize:12, color:'rgba(255,255,255,0.35)', marginTop:4 }}>직원 계정 생성</div>
+          </div>
+          {[['이름 *','name','text','홍길동'],['이메일 *','email','email','example@email.com'],['비밀번호 * (6자 이상)','password','password',''],['비밀번호 확인 *','pw2','password',''],['부서/직책','dept','text','예: 소방안전관리']].map(([label,field,type,ph])=>(
+            <div key={field} style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>{label}</div>
+              <input type={type} placeholder={ph} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
+                style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1.5px solid rgba(255,255,255,0.1)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'#fff', fontFamily:'inherit', outline:'none' }} />
+            </div>
+          ))}
+          {err && <div style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'10px 14px', fontSize:12.5, color:'#f87171', marginBottom:12 }}>⚠ {err}</div>}
+          <button onClick={submit} disabled={loading}
+            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', marginBottom:12, boxShadow:'0 4px 20px rgba(99,102,241,0.4)' }}>
+            {loading?'처리 중…':'가입 신청'}
+          </button>
+          <button onClick={onBack} style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'11px', fontSize:13, color:'rgba(255,255,255,0.45)', cursor:'pointer' }}>
+            ← 로그인으로 돌아가기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Login ────────────────────────────────────────────────────
 function LoginPage({ onLogin }) {
-  const [pw,setPw]=useState(''); const [err,setErr]=useState('');
-  const go=()=>{ if(!onLogin(pw)){ setErr('비밀번호가 올바르지 않습니다.'); setPw(''); } };
+  const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
+  const [err,setErr]=useState(''); const [loading,setLoading]=useState(false);
+  const [showReg,setShowReg]=useState(false);
+  const go=async()=>{
+    if(!email.trim()||!pw){ setErr('이메일과 비밀번호를 입력하세요.'); return; }
+    setLoading(true); setErr('');
+    const result=await onLogin(email.trim(),pw);
+    if(!result.ok){ setErr(result.error||'로그인 실패'); setPw(''); }
+    setLoading(false);
+  };
   const features=[['📊','관리비 청구'],['⚡','검침 관리'],['📋','전자결재'],['🚨','긴급호출'],['📄','전표'],['📅','출퇴근'],['🔥','비상연락망'],['📑','계약서 관리']];
+
+  if(showReg) return <RegisterPage onBack={()=>setShowReg(false)} />;
   return (
     <div style={{ display:'flex', minHeight:'100vh', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', overflow:'hidden' }}>
       {/* 배경 */}
@@ -381,24 +507,30 @@ function LoginPage({ onLogin }) {
             <div style={{ fontSize:22, fontWeight:800, color:'#fff', letterSpacing:'-0.3px' }}>로그인</div>
             <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.35)', marginTop:5 }}>관리 시스템에 접속합니다</div>
           </div>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>이메일</div>
+            <input type="email" placeholder="이메일 주소" value={email}
+              onChange={e=>{setEmail(e.target.value);setErr('');}}
+              onKeyDown={e=>e.key==='Enter'&&go()}
+              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none' }} />
+          </div>
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:12, color:'rgba(255,255,255,0.45)', marginBottom:6, fontWeight:500 }}>비밀번호</div>
-            <input type="password" placeholder="비밀번호 입력" value={pw}
+            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>비밀번호</div>
+            <input type="password" placeholder="비밀번호" value={pw}
               onChange={e=>{setPw(e.target.value);setErr('');}}
               onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s' }} />
-            {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
+              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none' }} />
+            {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6 }}>⚠ {err}</div>}
           </div>
-          <button onClick={go}
-            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5 0%,#6366f1 100%)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:'pointer', letterSpacing:'-0.2px', boxShadow:'0 4px 24px rgba(99,102,241,0.45)', transition:'all 0.15s' }}>
-            로그인
+          <button onClick={go} disabled={loading}
+            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 24px rgba(99,102,241,0.45)', marginBottom:12 }}>
+            {loading?'로그인 중…':'로그인'}
           </button>
-          <div style={{ textAlign:'center', marginTop:20, fontSize:11, color:'rgba(255,255,255,0.2)', lineHeight:2 }}>
-            <div>직원 · 일반 비밀번호</div>
-            <div>대표님 · 대표 전용 비밀번호</div>
-            <div>마스터 · 관리자 전용 비밀번호</div>
-          </div>
-          <div style={{ textAlign:'center', marginTop:20, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
+          <button onClick={()=>setShowReg(true)}
+            style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px', fontSize:13, color:'rgba(255,255,255,0.45)', cursor:'pointer' }}>
+            계정이 없으신가요? 회원가입
+          </button>
+          <div style={{ textAlign:'center', marginTop:16, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
             v3.0 · © {new Date().getFullYear()} TAE LIM ELECTRONICS
           </div>
         </div>
@@ -2179,6 +2311,31 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
     setTgMsg(res.ok?'✓ 테스트 알림 전송 성공!':'⚠ 전송 실패: '+res.err);
     setTimeout(()=>setTgMsg(''),4000);
   };
+  const [fbUsers,setFbUsers]=useState([]);
+  const [fbUsersLoading,setFbUsersLoading]=useState(false);
+
+  useEffect(()=>{
+    if(role!=='master'&&role!=='admin') return;
+    setFbUsersLoading(true);
+    const unsub=onSnapshot(collection(db,'users'),(snap)=>{
+      setFbUsers(snap.docs.map(d=>({uid:d.id,...d.data()})));
+      setFbUsersLoading(false);
+    });
+    return unsub;
+  },[role]);
+
+  const approveUser=async(uid,newRole)=>{
+    await updateDoc(doc(db,'users',uid),{approved:true,role:newRole});
+    setUsersMsg(`✓ 승인 완료 (${newRole})`); setTimeout(()=>setUsersMsg(''),3000);
+  };
+  const rejectUser=async(uid)=>{
+    if(!window.confirm('이 사용자를 삭제하시겠습니까?')) return;
+    await deleteDoc(doc(db,'users',uid));
+  };
+  const changeUserRole=async(uid,newRole)=>{
+    await updateDoc(doc(db,'users',uid),{role:newRole});
+  };
+
   const addUser=()=>{
     if(!newUser.name.trim()||!newUser.password.trim()){ setUsersMsg('⚠ 이름과 비밀번호를 입력하세요.'); setTimeout(()=>setUsersMsg(''),3000); return; }
     const u={id:Date.now(),name:newUser.name.trim(),role:newUser.role,password:newUser.password,approved:true,createdAt:new Date().toISOString()};
@@ -2223,6 +2380,47 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
           {tgMsg && <span style={{ fontSize:12.5, color:tgMsg.startsWith('⚠')?C.red:C.green, fontWeight:500 }}>{tgMsg}</span>}
         </div>
       </div>
+
+      {/* Firebase 사용자 승인 관리 */}
+      {(role==='master'||role==='admin') && (
+        <div style={CARD}>
+          <SecHead icon="🔥" title="Firebase 회원 관리 (가입 승인)" />
+          {fbUsersLoading && <div style={{ fontSize:13, color:C.textSub, padding:'12px 0' }}>로딩 중…</div>}
+          {!fbUsersLoading && fbUsers.length===0 && <div style={{ fontSize:13, color:C.textHint, padding:'12px 0' }}>등록된 사용자가 없습니다.</div>}
+          {!fbUsersLoading && fbUsers.length>0 && (
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:560 }}>
+                <thead><tr>{[['이름','left'],['이메일','left'],['사번','left',90],['역할','center',90],['상태','center',80],['','center',120]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {fbUsers.map((u,i)=>(
+                    <tr key={u.uid} style={{ background:i%2===0?C.white:C.tAlt }}>
+                      <td style={TD('left',{fontWeight:600})}>{u.name||'—'}</td>
+                      <td style={TD('left',{fontSize:12,color:C.textSub})}>{u.email}</td>
+                      <td style={TD('left',{fontFamily:'monospace',fontSize:12,color:C.navy})}>{u.empNo||'—'}</td>
+                      <td style={TD('center')}>
+                        <select value={u.role||'pending'} onChange={e=>changeUserRole(u.uid,e.target.value)}
+                          style={{ fontSize:11, border:`1px solid ${C.border}`, borderRadius:6, padding:'2px 6px', background:C.white, cursor:'pointer' }}>
+                          {['master','admin','staff','pending'].map(r=><option key={r} value={r}>{r==='master'?'🔑마스터':r==='admin'?'👑대표':r==='staff'?'👤직원':'⏳대기'}</option>)}
+                        </select>
+                      </td>
+                      <td style={TD('center')}>
+                        <span style={{ background:u.approved?C.greenBg:C.amberBg, color:u.approved?C.green:C.amber, border:`1px solid ${u.approved?C.greenBorder:C.amberBorder}`, borderRadius:20, padding:'2px 10px', fontSize:11, fontWeight:600 }}>{u.approved?'승인됨':'대기중'}</span>
+                      </td>
+                      <td style={TD('center')}>
+                        <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                          {!u.approved && <button onClick={()=>approveUser(u.uid,u.role||'staff')} style={{ ...btn('success'), height:26, padding:'0 10px', fontSize:11 }}>승인</button>}
+                          <button onClick={()=>rejectUser(u.uid)} style={{ ...btn('danger'), height:26, padding:'0 8px', fontSize:11 }}>삭제</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {usersMsg && <div style={{ fontSize:12.5, color:usersMsg.startsWith('⚠')?C.red:C.green, marginTop:8 }}>{usersMsg}</div>}
+        </div>
+      )}
 
       {/* 사용자 관리 (대표만) */}
       {role==='admin' && (
@@ -3694,6 +3892,7 @@ export default function App() {
 
   const [loggedIn,setLoggedIn]=useState(false);
   const [role,setRole]=useState('staff');
+  const [userProfile,setUserProfile]=useState(null);
   const [savedPw,setSavedPw]=useState(()=>store.get('tl_pw')||DEFAULT_PASSWORD);
   const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'admin2024');
   const [masterPw,setMasterPw]=useState(()=>store.get('tl_master_pw')||'master2024');
@@ -3724,14 +3923,23 @@ export default function App() {
     setHistory(next); store.set('tl_history',next);
     setTimeout(()=>setSaveMsg(''),3000);
   };
-  const handleLogin=(pw)=>{
-    if(pw===masterPw){ setLoggedIn(true); setRole('master'); return true; }
-    if(pw===adminPw){ setLoggedIn(true); setRole('admin'); return true; }
-    if(pw===savedPw){ setLoggedIn(true); setRole('staff'); return true; }
-    const users=store.get('tl_users')||[];
-    const u=users.find(u=>u.approved&&u.password===pw);
-    if(u){ setLoggedIn(true); setRole(u.role||'staff'); store.set('tl_user_name',u.name); return true; }
-    return false;
+  // Firebase 로그인
+  const handleLogin=async(email,password)=>{
+    try {
+      const cred=await signInWithEmailAndPassword(auth,email,password);
+      const snap=await getDoc(doc(db,'users',cred.user.uid));
+      if(!snap.exists()){ await signOut(auth); return {ok:false,error:'사용자 정보가 없습니다.'}; }
+      const profile=snap.data();
+      if(!profile.approved){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다. 대표님께 문의하세요.'}; }
+      setRole(profile.role||'staff');
+      setUserProfile(profile);
+      store.set('tl_user_name',profile.name||email);
+      setLoggedIn(true);
+      return {ok:true};
+    } catch(e){
+      const msg={'auth/user-not-found':'등록되지 않은 이메일입니다.','auth/wrong-password':'비밀번호가 올바르지 않습니다.','auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않습니다.','auth/too-many-requests':'로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.'};
+      return {ok:false, error:msg[e.code]||e.message};
+    }
   };
   const handleSetPw=(pw)=>{ setSavedPw(pw); store.set('tl_pw',pw); };
   const handleSetAdminPw=(pw)=>{ setAdminPw(pw); store.set('tl_admin_pw',pw); };
@@ -3743,7 +3951,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", minHeight:'100vh', background:C.pageBg }}>
-      <Header page={page} setPage={setPage} onLogout={()=>{ setLoggedIn(false); setRole('staff'); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} />
+      <Header page={page} setPage={setPage} onLogout={async()=>{ await signOut(auth); setLoggedIn(false); setRole('staff'); setUserProfile(null); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} />
       <main style={{ padding:'20px 24px', maxWidth:980, margin:'0 auto' }}>
         {page==='input'     && <InputPage    reading={reading} onChange={onChange} onSave={onSave} saveMsg={saveMsg} />}
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
