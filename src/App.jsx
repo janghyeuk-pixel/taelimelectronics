@@ -157,6 +157,19 @@ async function analyzeInvoiceImage(base64, type) {
   return JSON.parse(match[0]);
 }
 
+// ─── Telegram 알림 헬퍼 ───────────────────────────────────────
+async function sendTelegram(token, chatId, text) {
+  if (!token || !chatId) return { ok:false, err:'Telegram 미설정' };
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id:chatId, text, parse_mode:'HTML' }),
+    });
+    const d = await res.json();
+    return res.ok ? { ok:true } : { ok:false, err:d.description||'전송 실패' };
+  } catch(e) { return { ok:false, err:e.message }; }
+}
+
 // ─── Design System ────────────────────────────────────────────
 const C = {
   navy:'#3730a3', navyDark:'#312e81', navyMid:'#4f46e5', navyLight:'#6366f1',
@@ -314,23 +327,35 @@ function LoginPage({ onLogin }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────
-function Header({ page, setPage, onLogout }) {
-  const tabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['report','업무보고'],['settings','설정']];
+function Header({ page, setPage, onLogout, role, pendingCount }) {
+  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['report','업무보고'],['settings','설정']];
   return (
-    <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 20px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, marginRight:12 }}>
-        <TLLogo size={28} />
+    <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10 }}>
+        <TLLogo size={26} />
         <div>
-          <div style={{ fontWeight:700, fontSize:13, letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:9, opacity:0.4, letterSpacing:'0.8px', marginTop:1 }}>MANAGEMENT SYSTEM</div>
+          <div style={{ fontWeight:700, fontSize:12, letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
+          <div style={{ fontSize:9, opacity:0.4, letterSpacing:'0.5px', marginTop:1 }}>MANAGEMENT SYSTEM</div>
         </div>
       </div>
       <nav style={{ display:'flex', gap:1, alignItems:'center', overflowX:'auto' }}>
-        {tabs.map(([id,label])=>(
-          <button key={id} onClick={()=>setPage(id)} style={{ background:page===id?'rgba(255,255,255,0.14)':'transparent', border:page===id?'1px solid rgba(255,255,255,0.18)':'1px solid transparent', borderRadius:8, padding:'5px 11px', fontSize:12, cursor:'pointer', color:page===id?'#fff':'rgba(255,255,255,0.58)', fontFamily:'inherit', fontWeight:page===id?600:400, whiteSpace:'nowrap', transition:'all 0.15s' }}>{label}</button>
-        ))}
-        <div style={{ width:1, height:18, background:'rgba(255,255,255,0.12)', margin:'0 6px', flexShrink:0 }} />
-        <button onClick={onLogout} style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'5px 12px', fontSize:12, cursor:'pointer', color:'rgba(255,255,255,0.5)', fontFamily:'inherit', whiteSpace:'nowrap', flexShrink:0 }}>로그아웃</button>
+        {baseTabs.map(([id,label])=>{
+          const isApproval=id==='approval';
+          const active=page===id;
+          return (
+            <button key={id} onClick={()=>setPage(id)} style={{ background:active?'rgba(255,255,255,0.14)':'transparent', border:active?'1px solid rgba(255,255,255,0.18)':'1px solid transparent', borderRadius:8, padding:'5px 10px', fontSize:11, cursor:'pointer', color:active?'#fff':'rgba(255,255,255,0.58)', fontFamily:'inherit', fontWeight:active?600:400, whiteSpace:'nowrap', transition:'all 0.15s', position:'relative' }}>
+              {label}
+              {isApproval && pendingCount>0 && <span style={{ position:'absolute', top:2, right:2, width:14, height:14, background:'#ef4444', borderRadius:'50%', fontSize:9, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>{pendingCount}</span>}
+            </button>
+          );
+        })}
+        <div style={{ width:1, height:18, background:'rgba(255,255,255,0.12)', margin:'0 5px', flexShrink:0 }} />
+        <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+          <span style={{ background:role==='admin'?'rgba(250,204,21,0.25)':'rgba(255,255,255,0.08)', border:`1px solid ${role==='admin'?'rgba(250,204,21,0.5)':'rgba(255,255,255,0.15)'}`, borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, color:role==='admin'?'#fde047':'rgba(255,255,255,0.6)', whiteSpace:'nowrap' }}>
+            {role==='admin'?'👑 대표':'👤 직원'}
+          </span>
+          <button onClick={onLogout} style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'5px 10px', fontSize:11, cursor:'pointer', color:'rgba(255,255,255,0.5)', fontFamily:'inherit', whiteSpace:'nowrap' }}>로그아웃</button>
+        </div>
       </nav>
     </header>
   );
@@ -1958,8 +1983,20 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:13px;backg
 }
 
 // ─── Settings Page ────────────────────────────────────────────
-function SettingsPage({ savedPassword, setSavedPassword, tenants, setTenants, reading }) {
+function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, tenants, setTenants, reading, role }) {
   const [pw1,setPw1]=useState(''); const [pw2,setPw2]=useState(''); const [pwMsg,setPwMsg]=useState('');
+  const [apw1,setApw1]=useState(''); const [apw2,setApw2]=useState(''); const [apwMsg,setApwMsg]=useState('');
+  // Telegram
+  const [tgToken,setTgToken]=useState(()=>store.get('tl_telegram_token')||'');
+  const [tgAdmin,setTgAdmin]=useState(()=>store.get('tl_telegram_admin')||'');
+  const [tgStaff,setTgStaff]=useState(()=>store.get('tl_telegram_staff')||'');
+  const [tgMsg,setTgMsg]=useState('');
+  // User name
+  const [userName,setUserName]=useState(()=>store.get('tl_user_name')||'');
+  // Users (회원 관리)
+  const [users,setUsers]=useState(()=>store.get('tl_users')||[]);
+  const [newUser,setNewUser]=useState({name:'',role:'staff',password:''});
+  const [usersMsg,setUsersMsg]=useState('');
   const [lt,setLt]=useState(tenants); const [tenantMsg,setTenantMsg]=useState('');
   const [apiKey,setApiKey]=useState(()=>store.get('tl_anthropic_key')||'');
   const [apiKeyMsg,setApiKeyMsg]=useState('');
@@ -2023,10 +2060,99 @@ function SettingsPage({ savedPassword, setSavedPassword, tenants, setTenants, re
     window.open(`https://mail.google.com/mail/?view=cm&to=${to}&su=${su}&body=${body2}`,'_blank');
   };
 
+  const changeAdminPw=()=>{
+    if(!apw1){ setApwMsg('새 비밀번호를 입력하세요.'); return; }
+    if(apw1!==apw2){ setApwMsg('비밀번호가 일치하지 않습니다.'); return; }
+    setAdminPw(apw1); setApw1(''); setApw2('');
+    setApwMsg('✓ 대표 비밀번호가 변경됐습니다.'); setTimeout(()=>setApwMsg(''),3000);
+  };
+  const saveTgSettings=()=>{
+    store.set('tl_telegram_token',tgToken);
+    store.set('tl_telegram_admin',tgAdmin);
+    store.set('tl_telegram_staff',tgStaff);
+    setTgMsg('✓ 저장됐습니다.');  setTimeout(()=>setTgMsg(''),2500);
+  };
+  const testTg=async()=>{
+    const res=await sendTelegram(tgToken,tgAdmin,`✅ <b>태림전자공업 알림 테스트</b>\n\nTelegram 연동이 정상 작동합니다!\n시각: ${new Date().toLocaleString('ko-KR')}`);
+    setTgMsg(res.ok?'✓ 테스트 알림 전송 성공!':'⚠ 전송 실패: '+res.err);
+    setTimeout(()=>setTgMsg(''),4000);
+  };
+  const addUser=()=>{
+    if(!newUser.name.trim()||!newUser.password.trim()){ setUsersMsg('⚠ 이름과 비밀번호를 입력하세요.'); setTimeout(()=>setUsersMsg(''),3000); return; }
+    const u={id:Date.now(),name:newUser.name.trim(),role:newUser.role,password:newUser.password,approved:true,createdAt:new Date().toISOString()};
+    const next=[...users,u];
+    setUsers(next); store.set('tl_users',next);
+    setNewUser({name:'',role:'staff',password:''});
+    setUsersMsg('✓ 사용자가 추가됐습니다.'); setTimeout(()=>setUsersMsg(''),3000);
+  };
+  const deleteUser=(id)=>{ const next=users.filter(u=>u.id!==id); setUsers(next); store.set('tl_users',next); };
+
   const FL=({text})=><div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>{text}</div>;
 
   return (
     <div>
+      {/* 내 이름 설정 */}
+      <div style={CARD}>
+        <SecHead icon="👤" title="내 이름 설정 (보고서·결재서 표시)" />
+        <div style={{ display:'flex', gap:10, alignItems:'center', maxWidth:400 }}>
+          <input value={userName} onChange={e=>setUserName(e.target.value)} placeholder="이름 입력 (예: 홍길동)" style={{ ...baseInput, background:C.white, flex:1 }} />
+          <button onClick={()=>{ store.set('tl_user_name',userName); }} style={btn('primary')}>저장</button>
+        </div>
+        <div style={{ fontSize:11.5, color:C.textHint, marginTop:6 }}>업무보고, 전자결재, 전표 등 모든 문서에 이 이름이 표시됩니다.</div>
+      </div>
+
+      {/* Telegram 알림 설정 */}
+      <div style={CARD}>
+        <SecHead icon="📱" title="Telegram 알림 설정 (긴급호출·결재 알림)" />
+        <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:10, padding:'12px 16px', marginBottom:14, fontSize:12.5, color:'#0c4a6e', lineHeight:1.8 }}>
+          <div style={{ fontWeight:700, marginBottom:4 }}>📋 Telegram 봇 설정 방법 (1회만 하면 됩니다)</div>
+          <div><b>1.</b> Telegram에서 <b>@BotFather</b> 검색 → <code>/newbot</code> 명령 → 봇 토큰 복사</div>
+          <div><b>2.</b> 대표님 Telegram에서 봇을 찾아 <b>/start</b> 전송 후 <b>@userinfobot</b>에서 Chat ID 확인</div>
+          <div><b>3.</b> 아래에 토큰과 Chat ID 입력 후 "저장 + 테스트 발송" 클릭</div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10, marginBottom:12 }}>
+          <div><FL text="봇 토큰 (Bot Token)" /><input type="password" value={tgToken} onChange={e=>setTgToken(e.target.value)} placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ" style={{ ...baseInput, background:C.white, fontFamily:'monospace', fontSize:12 }} /></div>
+          <div><FL text="대표님 Chat ID (긴급호출 + 결재알림 수신)" /><input value={tgAdmin} onChange={e=>setTgAdmin(e.target.value)} placeholder="예: 123456789" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
+          <div><FL text="직원 Chat ID (승인/반려 결과 수신 — 선택)" /><input value={tgStaff} onChange={e=>setTgStaff(e.target.value)} placeholder="예: 987654321 (없으면 비워두세요)" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <button onClick={saveTgSettings} style={btn('primary')}>💾 저장</button>
+          <button onClick={testTg} disabled={!tgToken||!tgAdmin} style={{ ...btn('navyGhost'), opacity:(!tgToken||!tgAdmin)?0.5:1 }}>📤 테스트 발송</button>
+          {tgMsg && <span style={{ fontSize:12.5, color:tgMsg.startsWith('⚠')?C.red:C.green, fontWeight:500 }}>{tgMsg}</span>}
+        </div>
+      </div>
+
+      {/* 사용자 관리 (대표만) */}
+      {role==='admin' && (
+        <div style={CARD}>
+          <SecHead icon="👥" title="사용자 관리 (직원 계정 추가)" />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto auto', gap:8, marginBottom:12, alignItems:'flex-end' }}>
+            <div><FL text="이름" /><input value={newUser.name} onChange={e=>setNewUser(u=>({...u,name:e.target.value}))} placeholder="예: 홍길동" style={{ ...baseInput, background:C.white }} /></div>
+            <div><FL text="비밀번호" /><input value={newUser.password} onChange={e=>setNewUser(u=>({...u,password:e.target.value}))} placeholder="로그인 비밀번호" style={{ ...baseInput, background:C.white }} /></div>
+            <div><FL text="역할" /><select value={newUser.role} onChange={e=>setNewUser(u=>({...u,role:e.target.value}))} style={{ ...baseInput, background:C.white, cursor:'pointer' }}><option value="staff">직원</option><option value="admin">대표</option></select></div>
+            <div style={{ paddingBottom:0 }}><button onClick={addUser} style={{ ...btn('primary'), width:'100%', height:36, marginTop:20 }}>+ 추가</button></div>
+          </div>
+          {usersMsg && <div style={{ fontSize:12.5, color:usersMsg.startsWith('⚠')?C.red:C.green, marginBottom:8 }}>{usersMsg}</div>}
+          {users.length>0 && (
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead><tr>{[['이름','left'],['역할','left',80],['비밀번호','left'],['등록일','left',100],['','center',40]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+              <tbody>
+                {users.map((u,i)=>(
+                  <tr key={u.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                    <td style={TD('left',{fontWeight:600})}>{u.name}</td>
+                    <td style={TD('left')}><span style={{ background:u.role==='admin'?'#fef9c3':'#eff6ff', color:u.role==='admin'?'#854d0e':'#1d4ed8', borderRadius:6, padding:'2px 8px', fontSize:11, fontWeight:600 }}>{u.role==='admin'?'대표':'직원'}</span></td>
+                    <td style={TD('left',{fontFamily:'monospace',fontSize:12,color:C.textSub})}>{u.password}</td>
+                    <td style={TD('left',{fontSize:11,color:C.textSub})}>{new Date(u.createdAt).toLocaleDateString('ko-KR')}</td>
+                    <td style={TD('center')}><button onClick={()=>deleteUser(u.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.red, fontSize:16 }}>×</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ fontSize:11.5, color:C.textHint, marginTop:8 }}>추가한 직원은 위 비밀번호로 로그인합니다. 이름이 자동으로 설정됩니다.</div>
+        </div>
+      )}
+
       <div style={CARD}>
         <SecHead icon="🤖" title="Anthropic API 키 (고지서 이미지 자동 인식)" />
         <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:6 }}>
@@ -2043,17 +2169,35 @@ function SettingsPage({ savedPassword, setSavedPassword, tenants, setTenants, re
 
       <div style={CARD}>
         <SecHead icon="🔐" title="비밀번호 변경" />
-        <div style={{ maxWidth:400 }}>
-          {[['새 비밀번호',pw1,setPw1],['비밀번호 확인',pw2,setPw2]].map(([lbl,val,set])=>(
-            <div key={lbl} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-              <div style={{ fontSize:12.5, color:C.textSub, minWidth:100 }}>{lbl}</div>
-              <input type="password" value={val} onChange={e=>set(e.target.value)} style={{ ...baseInput, background:C.white, flex:1 }} />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+          <div>
+            <div style={{ fontSize:12.5, fontWeight:600, color:C.navy, marginBottom:10 }}>👤 직원 비밀번호</div>
+            {[['새 비밀번호',pw1,setPw1],['비밀번호 확인',pw2,setPw2]].map(([lbl,val,set])=>(
+              <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
+                <div style={{ fontSize:11.5, color:C.textSub }}>{lbl}</div>
+                <input type="password" value={val} onChange={e=>set(e.target.value)} style={{ ...baseInput, background:C.white }} />
+              </div>
+            ))}
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <button onClick={changePw} style={btn('primary')}>변경</button>
+              {pwMsg && <span style={{ fontSize:12.5, color:pwMsg.includes('✓')?C.green:C.red }}>{pwMsg}</span>}
             </div>
-          ))}
-          <div style={{ display:'flex', gap:10, alignItems:'center', marginTop:4 }}>
-            <button onClick={changePw} style={btn('primary')}>변경</button>
-            {pwMsg && <span style={{ fontSize:12.5, color:pwMsg.includes('✓')?C.green:C.red }}>{pwMsg}</span>}
           </div>
+          {role==='admin' && (
+            <div>
+              <div style={{ fontSize:12.5, fontWeight:600, color:'#854d0e', marginBottom:10 }}>👑 대표 비밀번호</div>
+              {[['새 비밀번호',apw1,setApw1],['비밀번호 확인',apw2,setApw2]].map(([lbl,val,set])=>(
+                <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
+                  <div style={{ fontSize:11.5, color:C.textSub }}>{lbl}</div>
+                  <input type="password" value={val} onChange={e=>set(e.target.value)} style={{ ...baseInput, background:C.white }} />
+                </div>
+              ))}
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <button onClick={changeAdminPw} style={btn('amber')}>변경</button>
+                {apwMsg && <span style={{ fontSize:12.5, color:apwMsg.includes('✓')?C.green:C.red }}>{apwMsg}</span>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2430,6 +2574,532 @@ td{padding:7px 10px;border:1px solid #ddd;font-size:12px;vertical-align:middle;}
   );
 }
 
+// ─── Approval Page (전자결재 + 긴급호출) ──────────────────────
+const ACCT_CODES = ['현금','보통예금(018)','보통예금(032)','MMF','외상매출금','미수금','선급금','임대보증금','임대수입','관리비수입','전기요금수익','수도요금수익','잡수입','전기요금','수도요금','수선비','경상비','통신비','소모품비','임차료','차량유지비','급여','복리후생비','접대비','세금과공과','감가상각비','잡비'];
+
+function ApprovalPage({ role }) {
+  const [items,setItems]=useState(()=>store.get('tl_approvals')||[]);
+  const [tab,setTab]=useState(role==='admin'?'pending':'submit');
+  const [form,setForm]=useState({type:'report',title:'',content:'',urgent:false});
+  const [reviewNotes,setReviewNotes]=useState({});
+  const [flash,setFlash]=useState({text:'',ok:true});
+  const [sending,setSending]=useState(false);
+  const [confirmEmerg,setConfirmEmerg]=useState(false);
+  const [emergLog,setEmergLog]=useState(()=>store.get('tl_emergency_log')||[]);
+  const [emergCool,setEmergCool]=useState(false);
+  const [renotifyAt,setRenotifyAt]=useState(null);
+  const authorName=store.get('tl_user_name')||role;
+
+  const saveItems=(next)=>{ setItems(next); store.set('tl_approvals',next); };
+  const tg=()=>({ token:store.get('tl_telegram_token'), admin:store.get('tl_telegram_admin'), staff:store.get('tl_telegram_staff') });
+  const msg=(text,ok=true)=>{ setFlash({text,ok}); setTimeout(()=>setFlash({text:'',ok:true}),5000); };
+
+  // 재알림 체크 (5분 후 미확인 시 재전송)
+  useEffect(()=>{
+    if(!renotifyAt) return;
+    const t=setTimeout(async()=>{
+      const {token,admin}=tg();
+      const res=await sendTelegram(token,admin,`🔔 <b>재알림: 긴급 호출 미확인</b>\n\n아직 확인되지 않은 긴급 호출이 있습니다.\n발신시각: ${new Date(renotifyAt).toLocaleString('ko-KR')}\n\n<b>즉시 확인하세요!</b>`);
+      setRenotifyAt(null);
+      msg(res.ok?'⚠ 5분 후 재알림 전송됨':'⚠ 재알림 전송 실패');
+    },5*60*1000);
+    return ()=>clearTimeout(t);
+  },[renotifyAt]);
+
+  const submitApproval=async()=>{
+    if(!form.title.trim()){ msg('제목을 입력하세요.',false); return; }
+    const item={id:Date.now(),type:form.type,urgent:form.urgent,title:form.title.trim(),content:form.content.trim(),author:authorName,submittedAt:new Date().toISOString(),status:'pending',reviewNote:'',reviewedAt:null};
+    saveItems([item,...items]);
+    setForm({type:'report',title:'',content:'',urgent:false});
+    const {token,admin}=tg();
+    if(token&&admin){
+      const urgTag=form.urgent?'🚨 <b>[긴급]</b> ':'';
+      const typeMap={report:'📋 업무보고',request:'📝 결재요청',leave:'🗓 휴가/조퇴'};
+      const txt=`${urgTag}${typeMap[form.type]||''} <b>결재 요청</b>\n\n작성자: ${authorName}\n제목: <b>${form.title}</b>\n\n${form.content?form.content.slice(0,400):'(내용 없음)'}\n\n🕒 ${new Date().toLocaleString('ko-KR')}\n\n👉 <i>아래 링크로 접속 후 전자결재 탭에서 확인 가능</i>`;
+      const res=await sendTelegram(token,admin,txt);
+      msg(res.ok?`✓ 제출 완료 · 대표님께 Telegram 알림 전송됨`:`✓ 제출 완료 (Telegram 미설정 또는 오류: ${res.err})`);
+    } else { msg('✓ 결재 요청 제출 완료 (Telegram 미설정)'); }
+  };
+
+  const doReview=async(id,status)=>{
+    const note=reviewNotes[id]||'';
+    const next=items.map(a=>a.id===id?{...a,status,reviewNote:note,reviewedAt:new Date().toISOString()}:a);
+    saveItems(next);
+    const item=items.find(a=>a.id===id);
+    const {token,staff}=tg();
+    if(token&&staff&&item){
+      const statusTxt=status==='approved'?'✅ <b>승인</b>':'❌ <b>반려</b>';
+      await sendTelegram(token,staff,`${statusTxt}\n\n제목: ${item.title}${note?`\n비고: ${note}`:''}\n\n🕒 ${new Date().toLocaleString('ko-KR')}`);
+    }
+    setReviewNotes(p=>{const n={...p};delete n[id];return n;});
+    msg(status==='approved'?'✅ 승인 처리됐습니다.':'❌ 반려 처리됐습니다.');
+  };
+
+  const doEmergency=async()=>{
+    setSending(true); setConfirmEmerg(false);
+    const log={id:Date.now(),at:new Date().toISOString(),confirmed:false};
+    const next=[log,...emergLog].slice(0,50);
+    setEmergLog(next); store.set('tl_emergency_log',next);
+    const {token,admin,staff}=tg();
+    let sent=false;
+    if(token&&admin){
+      const res=await sendTelegram(token,admin,`🚨🚨🚨 <b>긴급 호출</b> 🚨🚨🚨\n\n발신자: ${authorName}\n시각: ${new Date().toLocaleString('ko-KR')}\n\n<b>즉시 확인이 필요합니다!</b>\n\n태림전자공업㈜ 긴급 알림 시스템`);
+      sent=res.ok;
+      if(staff&&staff!==admin) await sendTelegram(token,staff,`🚨 긴급 호출 발송됨\n발신: ${authorName} · 시각: ${new Date().toLocaleString('ko-KR')}`);
+    }
+    setSending(false);
+    setEmergCool(true); setTimeout(()=>setEmergCool(false),10*60*1000);
+    if(sent) setRenotifyAt(Date.now());
+    msg(sent?'🚨 긴급 알림 전송 완료! 5분 내 미확인 시 재전송됩니다.':'⚠ 알림 전송 실패. 설정 > Telegram 설정을 확인하세요.',sent);
+  };
+
+  const confirmEmergency=(id)=>{
+    const next=emergLog.map(e=>e.id===id?{...e,confirmed:true}:e);
+    setEmergLog(next); store.set('tl_emergency_log',next);
+    setRenotifyAt(null);
+    msg('✓ 긴급 호출 확인 처리됐습니다.');
+  };
+
+  const pending=items.filter(a=>a.status==='pending');
+  const sb=(s)=>s==='pending'?{l:'대기중',bg:C.amberBg,c:C.amber,b:C.amberBorder}:s==='approved'?{l:'승인됨',bg:C.greenBg,c:C.green,b:C.greenBorder}:{l:'반려됨',bg:C.redBg,c:C.red,b:C.redBorder};
+  const typeMap={report:'업무보고',request:'결재요청',leave:'휴가/조퇴'};
+
+  return (
+    <div>
+      {/* 긴급호출 패널 */}
+      <div style={{ background:'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)', borderRadius:16, padding:'18px 22px', marginBottom:16, boxShadow:'0 8px 32px rgba(220,38,38,0.35)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:14 }}>
+          <div style={{ color:'#fff' }}>
+            <div style={{ fontSize:16, fontWeight:900, letterSpacing:'-0.3px', marginBottom:4 }}>🚨 긴급 호출</div>
+            <div style={{ fontSize:12, opacity:0.85, marginBottom:3 }}>누르면 대표님 Telegram에 즉시 알림 · 5분 후 미확인 시 재전송</div>
+            {emergLog.length>0 && <div style={{ fontSize:11, opacity:0.65 }}>최근 호출: {new Date(emergLog[0].at).toLocaleString('ko-KR')} {emergLog[0].confirmed&&'(확인됨)'}</div>}
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            {emergLog.length>0&&!emergLog[0].confirmed&&role==='admin' && (
+              <button onClick={()=>confirmEmergency(emergLog[0].id)}
+                style={{ background:'rgba(255,255,255,0.2)', color:'#fff', border:'1px solid rgba(255,255,255,0.4)', borderRadius:10, padding:'10px 16px', fontSize:13, cursor:'pointer', fontWeight:600 }}>
+                ✓ 확인 완료
+              </button>
+            )}
+            {confirmEmerg ? (
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={doEmergency} disabled={sending} style={{ background:'#fff', color:'#dc2626', border:'none', borderRadius:10, padding:'12px 22px', fontWeight:900, fontSize:15, cursor:'pointer', boxShadow:'0 2px 8px rgba(0,0,0,0.2)' }}>
+                  {sending?'전송 중…':'확인 — 전송'}
+                </button>
+                <button onClick={()=>setConfirmEmerg(false)} style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', borderRadius:10, padding:'12px 16px', fontSize:13, cursor:'pointer' }}>취소</button>
+              </div>
+            ) : (
+              <button onClick={()=>setConfirmEmerg(true)} disabled={emergCool}
+                style={{ background:emergCool?'rgba(255,255,255,0.25)':'#fff', color:emergCool?'rgba(255,255,255,0.5)':'#dc2626', border:'none', borderRadius:12, padding:'14px 32px', fontWeight:900, fontSize:17, cursor:emergCool?'not-allowed':'pointer', boxShadow:emergCool?'none':'0 4px 20px rgba(0,0,0,0.25)', letterSpacing:'-0.3px' }}>
+                {emergCool?'⏳ 쿨다운 (10분)':'🚨 긴급 호출'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 역할 & 알림 상태 */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>전자결재</span>
+          <span style={{ background:role==='admin'?'#fef9c3':'#eff6ff', color:role==='admin'?'#854d0e':'#1d4ed8', border:`1px solid ${role==='admin'?'#fde047':'#bfdbfe'}`, borderRadius:20, padding:'3px 12px', fontSize:12, fontWeight:700 }}>
+            {role==='admin'?'👑 대표 계정':'👤 직원 계정'}&nbsp;({authorName})
+          </span>
+        </div>
+        {pending.length>0 && <div style={{ background:C.redBg, border:`1px solid ${C.redBorder}`, borderRadius:20, padding:'4px 14px', fontSize:13, color:C.red, fontWeight:700 }}>결재 대기 {pending.length}건</div>}
+      </div>
+
+      {flash.text && <div style={{ background:flash.ok?C.greenBg:C.redBg, border:`1px solid ${flash.ok?C.greenBorder:C.redBorder}`, borderRadius:10, padding:'11px 16px', fontSize:13, color:flash.ok?C.green:C.red, marginBottom:12, fontWeight:500 }}>{flash.text}</div>}
+
+      {/* 탭 */}
+      <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+        {[
+          ...(role==='staff'?[['submit','✏ 결재 요청']]:[]),
+          ['pending',`⏳ 결재 대기${pending.length>0?` (${pending.length})`:''}`],
+          ['history','📋 결재 현황'],
+          ...(role==='admin'?[['emerglog','🚨 긴급 로그']]:[]),
+        ].map(([v,l])=>(
+          <button key={v} onClick={()=>setTab(v)} style={{ ...btn(tab===v?'primary':'secondary'), height:36 }}>{l}</button>
+        ))}
+      </div>
+
+      {/* 결재 요청 (직원) */}
+      {tab==='submit' && role==='staff' && (
+        <div style={CARD}>
+          <SecHead icon="📝" title="결재 요청 작성" />
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+            {[['report','📋 업무보고'],['request','📝 결재요청'],['leave','🗓 휴가/조퇴']].map(([v,l])=>(
+              <button key={v} onClick={()=>setForm(f=>({...f,type:v}))} style={{ ...btn(form.type===v?'active':'ghost'), height:34 }}>{l}</button>
+            ))}
+            <button onClick={()=>setForm(f=>({...f,urgent:!f.urgent}))}
+              style={{ ...btn(form.urgent?'danger':'secondary'), height:34 }}>
+              {form.urgent?'🚨 긴급':'긴급 아님'}
+            </button>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>제목</div>
+            <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="결재 제목 입력" style={{ ...baseInput, background:C.white }} />
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>내용 (보고 사항, 이유 등)</div>
+            <textarea value={form.content} onChange={e=>setForm(f=>({...f,content:e.target.value}))} rows={7}
+              placeholder="업무 내용, 요청 사유 등을 입력하세요." style={{ ...baseInput, background:C.white, resize:'vertical', lineHeight:1.9 }} />
+          </div>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <button onClick={submitApproval} style={btn('primary')}>📤 결재 요청 제출 (대표님께 Telegram 알림)</button>
+          </div>
+        </div>
+      )}
+
+      {/* 결재 대기 */}
+      {tab==='pending' && (
+        <div>
+          {pending.length===0 ? (
+            <div style={{ ...CARD, textAlign:'center', color:C.textSub, padding:'3rem', fontSize:14 }}>대기 중인 결재 항목이 없습니다. ✓</div>
+          ) : pending.map(item=>(
+            <div key={item.id} style={{ ...CARD, borderLeft:`4px solid ${item.urgent?C.red:C.navy}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10, flexWrap:'wrap', gap:6 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  {item.urgent && <span style={{ background:C.redBg, color:C.red, border:`1px solid ${C.redBorder}`, borderRadius:6, padding:'2px 8px', fontSize:11, fontWeight:700 }}>🚨 긴급</span>}
+                  <span style={{ background:C.navyBg, color:C.navyMid, borderRadius:6, padding:'2px 8px', fontSize:11 }}>{typeMap[item.type]||item.type}</span>
+                  <span style={{ fontSize:15, fontWeight:700, color:C.text }}>{item.title}</span>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:11, color:C.textSub }}>{item.author} · {new Date(item.submittedAt).toLocaleString('ko-KR')}</div>
+                </div>
+              </div>
+              {item.content && <div style={{ background:C.navyBg, borderRadius:10, padding:'12px 14px', fontSize:13, color:C.textMid, lineHeight:1.8, marginBottom:12, whiteSpace:'pre-wrap' }}>{item.content}</div>}
+              {role==='admin' && (
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                  <input value={reviewNotes[item.id]||''} onChange={e=>setReviewNotes(n=>({...n,[item.id]:e.target.value}))}
+                    placeholder="비고 입력 (선택사항)" style={{ ...baseInput, flex:1, minWidth:160, background:C.white }} />
+                  <button onClick={()=>doReview(item.id,'approved')} style={btn('success')}>✅ 승인</button>
+                  <button onClick={()=>doReview(item.id,'rejected')} style={btn('danger')}>❌ 반려</button>
+                </div>
+              )}
+              {role==='staff' && <div style={{ fontSize:12, color:C.textSub }}>대표님 결재 대기 중…</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 결재 현황 */}
+      {tab==='history' && (
+        <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:580 }}>
+              <thead><tr>{[['유형','left',80],['제목','left'],['작성자','left',80],['상태','center',90],['요청일','right',110],['처리일','right',110]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+              <tbody>
+                {items.length===0 && <tr><td colSpan={6} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>결재 내역이 없습니다.</td></tr>}
+                {items.map((item,i)=>{
+                  const s=sb(item.status);
+                  return (
+                    <tr key={item.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                      <td style={TD('left')}><span style={{ background:C.navyBg, color:C.navyMid, borderRadius:6, padding:'2px 7px', fontSize:11 }}>{typeMap[item.type]||item.type}</span></td>
+                      <td style={TD('left',{fontWeight:500})}>{item.urgent&&<span style={{ color:C.red, marginRight:4, fontSize:12 }}>🚨</span>}{item.title}{item.reviewNote&&<span style={{ fontSize:11, color:C.textSub, marginLeft:6 }}>({item.reviewNote})</span>}</td>
+                      <td style={TD('left',{fontSize:12,color:C.textSub})}>{item.author}</td>
+                      <td style={TD('center')}><span style={{ background:s.bg, color:s.c, border:`1px solid ${s.b}`, borderRadius:20, padding:'2px 10px', fontSize:12, fontWeight:600 }}>{s.l}</span></td>
+                      <td style={TD('right',{fontSize:11,color:C.textSub})}>{new Date(item.submittedAt).toLocaleDateString('ko-KR')}</td>
+                      <td style={TD('right',{fontSize:11,color:C.textSub})}>{item.reviewedAt?new Date(item.reviewedAt).toLocaleDateString('ko-KR'):'—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {items.length>0 && <div style={{ padding:'8px 14px', textAlign:'right' }}><button onClick={()=>{ if(window.confirm('결재 내역을 전체 삭제하시겠습니까?')){ saveItems([]); } }} style={{ ...btn('danger'), height:28, fontSize:11 }}>내역 전체 삭제</button></div>}
+        </div>
+      )}
+
+      {/* 긴급 로그 (대표) */}
+      {tab==='emerglog' && role==='admin' && (
+        <div style={CARD}>
+          <SecHead icon="🚨" title="긴급 호출 기록" />
+          {emergLog.length===0 ? <div style={{ textAlign:'center', color:C.textSub, padding:'2rem' }}>기록 없음</div> : (
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead><tr>{[['No.','center',44],['호출 시각','left'],['상태','center',100],['경과','right',100]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+              <tbody>
+                {emergLog.map((e,i)=>(
+                  <tr key={e.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                    <td style={TD('center',{color:C.red,fontWeight:700})}>{i+1}</td>
+                    <td style={TD('left')}>{new Date(e.at).toLocaleString('ko-KR')}</td>
+                    <td style={TD('center')}><span style={{ background:e.confirmed?C.greenBg:C.amberBg, color:e.confirmed?C.green:C.amber, border:`1px solid ${e.confirmed?C.greenBorder:C.amberBorder}`, borderRadius:20, padding:'2px 10px', fontSize:12 }}>{e.confirmed?'확인됨':'미확인'}</span></td>
+                    <td style={TD('right',{color:C.textSub,fontSize:12})}>{Math.round((Date.now()-new Date(e.at).getTime())/60000)}분 전</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* 크로스 디바이스 안내 */}
+      <div style={{ marginTop:16, background:'#fefce8', border:'1px solid #fde047', borderRadius:12, padding:'12px 16px' }}>
+        <div style={{ fontSize:12.5, fontWeight:700, color:'#854d0e', marginBottom:4 }}>📱 대표님 Telegram 연동 필요</div>
+        <div style={{ fontSize:12, color:'#713f12', lineHeight:1.8 }}>
+          결재 요청·긴급호출은 <b>Telegram으로 대표님 폰에 즉시 전달</b>됩니다.<br/>
+          설정 탭 → "Telegram 알림 설정"에서 봇 토큰과 대표님 Chat ID를 등록하세요.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Voucher Page (전표) ──────────────────────────────────────
+function VoucherPage({ role }) {
+  const [vouchers,setVouchers]=useState(()=>store.get('tl_vouchers')||[]);
+  const [tab,setTab]=useState('write');
+  const [vType,setVType]=useState('transfer'); // transfer/income/expense
+  const [form,setForm]=useState({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
+  const [filter,setFilter]=useState({type:'all',month:''});
+  const [flash,setFlash]=useState('');
+  const [imgModal,setImgModal]=useState(null);
+  const fileRef=useRef(null);
+  const authorName=store.get('tl_user_name')||role;
+
+  const msg=(t)=>{ setFlash(t); setTimeout(()=>setFlash(''),3000); };
+  const saveV=(next)=>{ setVouchers(next); store.set('tl_vouchers',next); };
+
+  const handleFile=async(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const dataUrl=await compressImage(file);
+    if(!dataUrl) return;
+    setForm(f=>({...f,file:file.name,fileUrl:dataUrl}));
+  };
+
+  const getVNo=(type)=>{
+    const prefix=type==='transfer'?'분':'income'?'입':'출';
+    const count=vouchers.filter(v=>v.type===type).length+1;
+    const yy=new Date().getFullYear()%100;
+    return `${prefix}-${yy}${String(count).padStart(3,'0')}`;
+  };
+
+  const submitVoucher=()=>{
+    const amt=Number(String(form.amount).replace(/,/g,''));
+    if(!amt||amt<=0){ msg('⚠ 금액을 입력하세요.'); return; }
+    if(vType==='transfer'&&(!form.debitAcct||!form.creditAcct)){ msg('⚠ 차변·대변 계정과목을 선택하세요.'); return; }
+    if(vType!=='transfer'&&!form.account){ msg('⚠ 계정과목을 선택하세요.'); return; }
+    const v={
+      id:Date.now(), vno:getVNo(vType), type:vType,
+      date:form.date, amount:amt, note:form.note,
+      debitAcct:form.debitAcct, creditAcct:form.creditAcct,
+      account:form.account, payee:form.payee,
+      fileUrl:form.fileUrl, fileName:form.file,
+      author:authorName, createdAt:new Date().toISOString(),
+      status:'draft',
+    };
+    saveV([v,...vouchers]);
+    setForm({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
+    msg('✓ 전표가 저장됐습니다.');
+    setTab('list');
+  };
+
+  const deleteV=(id)=>{ if(window.confirm('삭제하시겠습니까?')) saveV(vouchers.filter(v=>v.id!==id)); };
+
+  const handlePrint=(v)=>{
+    const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
+    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:12px;color:#111;}
+.page{max-width:650px;margin:16px auto;}
+.hdr{background:#312e81;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0;}
+.box{border:1.5px solid #000;border-top:none;padding:14px 18px;}
+.row{display:flex;gap:16px;margin-bottom:10px;}
+.field{flex:1;}.field-label{font-size:10px;color:#555;margin-bottom:2px;}.field-val{font-size:13px;font-weight:600;border-bottom:1px solid #aaa;padding-bottom:3px;}
+.amount{font-size:22px;font-weight:900;text-align:right;border:2px solid #000;padding:10px 16px;margin:12px 0;letter-spacing:1px;}
+.note{border:1px solid #aaa;padding:10px;min-height:50px;margin-bottom:10px;font-size:13px;}
+.sig{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #000;margin-top:14px;}
+.sig-cell{border-right:1px solid #000;padding:6px 10px;min-height:44px;}.sig-cell:last-child{border-right:none;}
+.sig-label{font-size:10px;color:#555;font-weight:700;}
+.footer{font-size:10px;color:#999;text-align:center;margin-top:8px;border-top:1px solid #eee;padding-top:6px;}
+@media print{@page{margin:12mm;}}
+</style></head><body>
+<div class="page">
+  <div class="hdr">
+    <div style="font-size:14px;font-weight:700;letter-spacing:2px;">태림전자공업㈜</div>
+    <div style="font-size:20px;font-weight:900;letter-spacing:5px;">${typeLabel[v.type]||'전표'}</div>
+    <div style="text-align:right;font-size:11px;opacity:0.8;">전표번호: ${v.vno}</div>
+  </div>
+  <div class="box">
+    <div class="row">
+      <div class="field"><div class="field-label">작성일자</div><div class="field-val">${v.date}</div></div>
+      <div class="field"><div class="field-label">작성자</div><div class="field-val">${v.author}</div></div>
+      <div class="field"><div class="field-label">전표번호</div><div class="field-val">${v.vno}</div></div>
+    </div>
+    ${v.type==='transfer'?`<div class="row">
+      <div class="field"><div class="field-label">차변 (Debit)</div><div class="field-val">${v.debitAcct}</div></div>
+      <div class="field"><div class="field-label">대변 (Credit)</div><div class="field-val">${v.creditAcct}</div></div>
+    </div>`:`<div class="row">
+      <div class="field"><div class="field-label">계정과목</div><div class="field-val">${v.account}</div></div>
+      <div class="field"><div class="field-label">${v.type==='income'?'입금처':'지출처'}</div><div class="field-val">${v.payee||'—'}</div></div>
+    </div>`}
+    <div class="amount">₩ ${Number(v.amount).toLocaleString('ko-KR')} 원</div>
+    <div style="font-size:10px;color:#555;margin-bottom:3px;">적요 (내용)</div>
+    <div class="note">${v.note||'—'}</div>
+    <div class="sig">
+      <div class="sig-cell"><div class="sig-label">작 성</div></div>
+      <div class="sig-cell"><div class="sig-label">검 토</div></div>
+      <div class="sig-cell"><div class="sig-label">승 인</div></div>
+    </div>
+  </div>
+  <div class="footer">태림전자공업㈜ · ${CO_ADDR} · Tel: ${CO_TEL} · © ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.</div>
+</div>
+<script>window.onload=()=>window.print();</script>
+</body></html>`;
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const w=window.open(url,'_blank');
+    if(!w){ alert('팝업이 차단됐습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  };
+
+  const displayV=vouchers.filter(v=>{
+    if(filter.type!=='all'&&v.type!==filter.type) return false;
+    if(filter.month&&!v.date.startsWith(filter.month)) return false;
+    return true;
+  });
+  const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
+  const typeBadge={'transfer':{bg:'#eff6ff',c:'#1d4ed8',b:'#bfdbfe'},'income':{bg:C.greenBg,c:C.green,b:C.greenBorder},'expense':{bg:C.redBg,c:C.red,b:C.redBorder}};
+  const totalIncome=displayV.filter(v=>v.type==='income').reduce((s,v)=>s+v.amount,0);
+  const totalExpense=displayV.filter(v=>v.type==='expense').reduce((s,v)=>s+v.amount,0);
+
+  const acctSelect=(field,label)=>(
+    <div>
+      <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>{label}</div>
+      <select value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
+        style={{ ...baseInput, background:C.white, cursor:'pointer' }}>
+        <option value="">-- 선택 --</option>
+        {ACCT_CODES.map(a=><option key={a} value={a}>{a}</option>)}
+      </select>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+        <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>전표 관리</span>
+        <div style={{ display:'flex', gap:6 }}>
+          <button onClick={()=>setTab('write')} style={{ ...btn(tab==='write'?'primary':'secondary'), height:34 }}>✏ 전표 작성</button>
+          <button onClick={()=>setTab('list')} style={{ ...btn(tab==='list'?'primary':'secondary'), height:34 }}>📋 전표 목록 ({vouchers.length})</button>
+        </div>
+      </div>
+
+      {tab==='write' && (
+        <div style={CARD}>
+          <SecHead icon="📄" title="전표 작성" />
+          {/* 전표 종류 */}
+          <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+            {[['transfer','⇄ 대체전표'],['income','↓ 입금전표'],['expense','↑ 출금전표']].map(([v,l])=>(
+              <button key={v} onClick={()=>setVType(v)} style={{ ...btn(vType===v?'active':'secondary'), flex:1, minWidth:100, height:40, fontSize:13 }}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+            <div>
+              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>날짜</div>
+              <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{ ...baseInput, background:C.white }} />
+            </div>
+            <div>
+              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>금액 (원)</div>
+              <input type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="0" style={{ ...baseInput, background:C.white, textAlign:'right', fontVariantNumeric:'tabular-nums', fontSize:15, fontWeight:700 }} />
+            </div>
+          </div>
+
+          {vType==='transfer' ? (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+              {acctSelect('debitAcct','차변 계정과목 (Debit ↑)')}
+              {acctSelect('creditAcct','대변 계정과목 (Credit ↓)')}
+            </div>
+          ) : (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+              {acctSelect('account','계정과목')}
+              <div>
+                <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>{vType==='income'?'입금처':'지출처'}</div>
+                <input value={form.payee} onChange={e=>setForm(f=>({...f,payee:e.target.value}))} placeholder={vType==='income'?'예) 한국웨지우드마케팅㈜':'예) 한국전력공사'} style={{ ...baseInput, background:C.white }} />
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>적요 (내용)</div>
+            <textarea value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} rows={3} placeholder="거래 내용, 메모 등" style={{ ...baseInput, background:C.white, resize:'vertical', lineHeight:1.8 }} />
+          </div>
+
+          {/* 영수증 첨부 */}
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:6 }}>영수증 첨부 (선택)</div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFile} />
+            {form.fileUrl ? (
+              <div style={{ position:'relative', display:'inline-block' }}>
+                <img src={form.fileUrl} alt="영수증" style={{ height:90, borderRadius:8, border:`1px solid ${C.border}`, cursor:'pointer', objectFit:'cover' }} onClick={()=>setImgModal(form.fileUrl)} />
+                <button onClick={()=>setForm(f=>({...f,file:null,fileUrl:null}))} style={{ position:'absolute', top:4, right:4, background:'rgba(0,0,0,0.55)', border:'none', color:'#fff', borderRadius:'50%', width:20, height:20, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+              </div>
+            ) : (
+              <button onClick={()=>{ fileRef.current.value=''; fileRef.current.click(); }} style={{ ...btn('secondary'), height:40 }}>📎 사진 첨부</button>
+            )}
+          </div>
+
+          {flash && <div style={{ background:flash.startsWith('⚠')?C.redBg:C.greenBg, border:`1px solid ${flash.startsWith('⚠')?C.redBorder:C.greenBorder}`, borderRadius:8, padding:'9px 14px', fontSize:13, color:flash.startsWith('⚠')?C.red:C.green, marginBottom:10 }}>{flash}</div>}
+          <button onClick={submitVoucher} style={btn('primary')}>💾 전표 저장</button>
+        </div>
+      )}
+
+      {tab==='list' && (
+        <div>
+          {/* 필터 + 요약 */}
+          <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+            <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} style={{ ...baseInput, width:'auto', background:C.white, padding:'6px 12px', cursor:'pointer' }}>
+              <option value="all">전체</option>
+              <option value="transfer">대체전표</option>
+              <option value="income">입금전표</option>
+              <option value="expense">출금전표</option>
+            </select>
+            <input type="month" value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value}))} style={{ ...baseInput, width:'auto', background:C.white }} />
+            {(filter.type!=='all'||filter.month) && <button onClick={()=>setFilter({type:'all',month:''})} style={{ ...btn('ghost'), height:34, fontSize:12 }}>필터 초기화</button>}
+            {totalIncome>0&&<span style={{ fontSize:12.5, color:C.green, fontWeight:600, marginLeft:'auto' }}>입금 {fmt(totalIncome)}원</span>}
+            {totalExpense>0&&<span style={{ fontSize:12.5, color:C.red, fontWeight:600 }}>출금 {fmt(totalExpense)}원</span>}
+          </div>
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:640 }}>
+                <thead><tr>{[['전표번호','left',90],['날짜','left',100],['구분','left',80],['계정','left'],['금액','right',130],['첨부','center',44],['','center',80]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {displayV.length===0 && <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>전표가 없습니다.</td></tr>}
+                  {displayV.map((v,i)=>{
+                    const tb=typeBadge[v.type]||typeBadge.transfer;
+                    return (
+                      <tr key={v.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                        <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>{v.vno}</td>
+                        <td style={TD('left',{fontSize:12})}>{v.date}</td>
+                        <td style={TD('left')}><span style={{ background:tb.bg, color:tb.c, border:`1px solid ${tb.b}`, borderRadius:6, padding:'2px 7px', fontSize:11 }}>{typeLabel[v.type]}</span></td>
+                        <td style={TD('left',{fontSize:12})}>{v.type==='transfer'?`${v.debitAcct} → ${v.creditAcct}`:(v.account+(v.payee?` (${v.payee})`:'')||(v.note||'—'))}</td>
+                        <td style={TD('right',{fontWeight:700,color:v.type==='income'?C.blue:v.type==='expense'?C.red:C.text})}>{fmt(v.amount)}원</td>
+                        <td style={TD('center')}>{v.fileUrl&&<span style={{ cursor:'pointer', fontSize:16 }} onClick={()=>setImgModal(v.fileUrl)}>📎</span>}</td>
+                        <td style={TD('center')}>
+                          <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                            <button onClick={()=>handlePrint(v)} style={{ ...btn('navyGhost'), height:26, padding:'0 8px', fontSize:11 }}>출력</button>
+                            <button onClick={()=>deleteV(v.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:16, lineHeight:1 }}>×</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imgModal && (
+        <div onClick={()=>setImgModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
+          <img src={imgModal} alt="영수증" style={{ maxWidth:'92vw', maxHeight:'90vh', borderRadius:8 }} onClick={e=>e.stopPropagation()} />
+          <button onClick={()=>setImgModal(null)} style={{ position:'fixed', top:18, right:22, background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', borderRadius:'50%', width:36, height:36, fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page Footer ───────────────────────────────────────────────
 function PageFooter() {
   return (
@@ -2457,8 +3127,11 @@ export default function App() {
   },[]);
 
   const [loggedIn,setLoggedIn]=useState(false);
+  const [role,setRole]=useState('staff');
   const [savedPw,setSavedPw]=useState(()=>store.get('tl_pw')||DEFAULT_PASSWORD);
+  const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'admin2024');
   const [page,setPage]=useState('input');
+  const [approvals,setApprovals]=useState(()=>store.get('tl_approvals')||[]);
   const [reading,setReading]=useState(()=>store.get('tl_reading')||SAMPLE_READING);
   const [history,setHistory]=useState(()=>store.get('tl_history')||INITIAL_HISTORY);
   const [tenants,setTenants]=useState(()=>{
@@ -2484,16 +3157,26 @@ export default function App() {
     setHistory(next); store.set('tl_history',next);
     setTimeout(()=>setSaveMsg(''),3000);
   };
-  const handleLogin=(pw)=>{ if(pw===savedPw){ setLoggedIn(true); return true; } return false; };
+  const handleLogin=(pw)=>{
+    if(pw===adminPw){ setLoggedIn(true); setRole('admin'); return true; }
+    if(pw===savedPw){ setLoggedIn(true); setRole('staff'); return true; }
+    // 등록 사용자 확인
+    const users=store.get('tl_users')||[];
+    const u=users.find(u=>u.approved&&u.password===pw);
+    if(u){ setLoggedIn(true); setRole(u.role||'staff'); store.set('tl_user_name',u.name); return true; }
+    return false;
+  };
   const handleSetPw=(pw)=>{ setSavedPw(pw); store.set('tl_pw',pw); };
+  const handleSetAdminPw=(pw)=>{ setAdminPw(pw); store.set('tl_admin_pw',pw); };
   const handleSetTenants=(t)=>{ setTenants(t); store.set('tl_tenants',t); };
+  const pendingCount=(store.get('tl_approvals')||[]).filter(a=>a.status==='pending').length;
 
   if(!loggedIn) return <LoginPage onLogin={handleLogin} />;
   const calc=calcAll(reading);
 
   return (
     <div style={{ fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", minHeight:'100vh', background:C.pageBg }}>
-      <Header page={page} setPage={setPage} onLogout={()=>setLoggedIn(false)} />
+      <Header page={page} setPage={setPage} onLogout={()=>{ setLoggedIn(false); setRole('staff'); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} />
       <main style={{ padding:'20px 24px', maxWidth:980, margin:'0 auto' }}>
         {page==='input'     && <InputPage    reading={reading} onChange={onChange} onSave={onSave} saveMsg={saveMsg} />}
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
@@ -2502,8 +3185,10 @@ export default function App() {
         {page==='tenant'    && <TenantPage   tenants={tenants} setTenants={handleSetTenants} />}
         {page==='finance'   && <FinancePage  />}
         {page==='notice'    && <NoticePage   />}
+        {page==='approval'  && <ApprovalPage role={role} />}
+        {page==='voucher'   && <VoucherPage  role={role} />}
         {page==='report'    && <WorkReportPage />}
-        {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} tenants={tenants} setTenants={handleSetTenants} reading={reading} />}
+        {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} adminPw={adminPw} setAdminPw={handleSetAdminPw} tenants={tenants} setTenants={handleSetTenants} reading={reading} role={role} />}
       </main>
       <PageFooter />
     </div>
