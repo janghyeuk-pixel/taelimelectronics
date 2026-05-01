@@ -286,9 +286,36 @@ function NumInput({ value, onChange }) {
 function TLLogo({ size=32, bw=false }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
-      <rect width="40" height="40" rx="9" fill={bw?'#111':C.navyDark} />
-      <rect x="2" y="2" width="36" height="36" rx="7" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" />
-      <text x="20" y="27" textAnchor="middle" fill="white" fontSize="17" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="-0.5">TL</text>
+      <defs>
+        <linearGradient id="tlgrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor={bw?'#333':'#6366f1'}/>
+          <stop offset="100%" stopColor={bw?'#111':'#312e81'}/>
+        </linearGradient>
+      </defs>
+      <rect width="40" height="40" rx="10" fill="url(#tlgrad)" />
+      <rect x="2" y="2" width="36" height="36" rx="8" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" />
+      <text x="20" y="27" textAnchor="middle" fill="white" fontSize="17" fontWeight="900" fontFamily="'Arial Black',Arial,sans-serif" letterSpacing="-0.5">TL</text>
+    </svg>
+  );
+}
+
+function TLLogoHero({ size=80 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+      <defs>
+        <linearGradient id="tlhg1" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#818cf8"/>
+          <stop offset="60%" stopColor="#4f46e5"/>
+          <stop offset="100%" stopColor="#312e81"/>
+        </linearGradient>
+        <linearGradient id="tlhg2" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.25)"/>
+          <stop offset="100%" stopColor="rgba(255,255,255,0.04)"/>
+        </linearGradient>
+      </defs>
+      <rect width="80" height="80" rx="22" fill="url(#tlhg1)"/>
+      <rect x="3" y="3" width="74" height="74" rx="19" fill="none" stroke="url(#tlhg2)" strokeWidth="1.5"/>
+      <text x="40" y="53" textAnchor="middle" fill="white" fontSize="34" fontWeight="900" fontFamily="'Arial Black',Arial,sans-serif" letterSpacing="-1">TL</text>
     </svg>
   );
 }
@@ -308,19 +335,73 @@ function DdayBadge({ dateStr }) {
 // ─── Login ────────────────────────────────────────────────────
 function LoginPage({ onLogin }) {
   const [pw,setPw]=useState(''); const [err,setErr]=useState('');
-  const go=()=>{ if(!onLogin(pw)) setErr('비밀번호가 올바르지 않습니다.'); };
+  const go=()=>{ if(!onLogin(pw)){ setErr('비밀번호가 올바르지 않습니다.'); setPw(''); } };
+  const features=[['📊','관리비 청구'],['⚡','검침 관리'],['📋','전자결재'],['🚨','긴급호출'],['📄','전표'],['📅','출퇴근'],['🔥','비상연락망'],['📑','계약서 관리']];
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:`linear-gradient(145deg,${C.navyDark} 0%,${C.navyMid} 100%)` }}>
-      <div style={{ background:C.white, borderRadius:20, padding:'2.5rem 2.5rem 2rem', width:340, boxShadow:'0 24px 64px rgba(0,0,0,0.22)' }}>
-        <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogo size={52} /></div>
-          <div style={{ fontSize:17, fontWeight:700, color:C.navyDark, letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:12, color:C.textSub, marginTop:4 }}>관리비 청구 시스템 v2.0</div>
+    <div style={{ display:'flex', minHeight:'100vh', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', overflow:'hidden' }}>
+      {/* 배경 */}
+      <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 40%,#0a1628 100%)' }} />
+      <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px' }} />
+      <div style={{ position:'absolute', top:'15%', left:'15%', width:500, height:500, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.1) 0%,transparent 65%)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', bottom:'10%', right:'15%', width:320, height:320, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.07) 0%,transparent 65%)', pointerEvents:'none' }} />
+
+      {/* 왼쪽 패널 - 브랜딩 */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'60px 64px', position:'relative', zIndex:1, minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:32 }}>
+          <TLLogoHero size={68} />
+          <div>
+            <div style={{ color:'#fff', fontSize:24, fontWeight:900, letterSpacing:'-0.5px', lineHeight:1.2 }}>태림전자공업㈜</div>
+            <div style={{ color:'rgba(255,255,255,0.4)', fontSize:10, letterSpacing:'2.5px', marginTop:5, textTransform:'uppercase' }}>TAE LIM ELECTRONICS CO., LTD.</div>
+          </div>
         </div>
-        <input type="password" placeholder="비밀번호" value={pw} onChange={e=>{setPw(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-          style={{ ...baseInput, background:'#F8FAFC', padding:'11px 14px', fontSize:14, marginBottom:8, border:`1.5px solid ${err?C.red:C.border}` }} />
-        {err && <div style={{ fontSize:12, color:C.red, marginBottom:8 }}>⚠ {err}</div>}
-        <button onClick={go} style={{ ...btn('primary'), width:'100%', height:44, fontSize:14, fontWeight:600 }}>로그인</button>
+        <div style={{ color:'rgba(255,255,255,0.6)', fontSize:13.5, lineHeight:2, marginBottom:36, maxWidth:400 }}>
+          구로디지털단지 통합 건물 관리 플랫폼.<br/>
+          관리비 청구부터 전자결재, 긴급호출까지<br/>
+          하나의 시스템에서 모두 관리합니다.
+        </div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:8, maxWidth:460 }}>
+          {features.map(([icon,label])=>(
+            <div key={label} style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', gap:7, transition:'background 0.2s' }}>
+              <span style={{ fontSize:14 }}>{icon}</span>
+              <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.55)', fontWeight:500 }}>{label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop:'auto', paddingTop:60, fontSize:10.5, color:'rgba(255,255,255,0.18)', lineHeight:1.9 }}>
+          <div>{CO_ADDR}</div>
+          <div>Tel: {CO_TEL} · Fax: {CO_FAX}</div>
+        </div>
+      </div>
+
+      {/* 오른쪽 패널 - 로그인 */}
+      <div style={{ width:420, background:'rgba(255,255,255,0.02)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', borderLeft:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', padding:'48px 40px', position:'relative', zIndex:1 }}>
+        <div style={{ width:'100%' }}>
+          <div style={{ textAlign:'center', marginBottom:36 }}>
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:16 }}><TLLogoHero size={52} /></div>
+            <div style={{ fontSize:22, fontWeight:800, color:'#fff', letterSpacing:'-0.3px' }}>로그인</div>
+            <div style={{ fontSize:12.5, color:'rgba(255,255,255,0.35)', marginTop:5 }}>관리 시스템에 접속합니다</div>
+          </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:12, color:'rgba(255,255,255,0.45)', marginBottom:6, fontWeight:500 }}>비밀번호</div>
+            <input type="password" placeholder="비밀번호 입력" value={pw}
+              onChange={e=>{setPw(e.target.value);setErr('');}}
+              onKeyDown={e=>e.key==='Enter'&&go()}
+              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:`1.5px solid ${err?'rgba(239,68,68,0.7)':'rgba(255,255,255,0.1)'}`, borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s' }} />
+            {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
+          </div>
+          <button onClick={go}
+            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5 0%,#6366f1 100%)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:'pointer', letterSpacing:'-0.2px', boxShadow:'0 4px 24px rgba(99,102,241,0.45)', transition:'all 0.15s' }}>
+            로그인
+          </button>
+          <div style={{ textAlign:'center', marginTop:20, fontSize:11, color:'rgba(255,255,255,0.2)', lineHeight:2 }}>
+            <div>직원 · 일반 비밀번호</div>
+            <div>대표님 · 대표 전용 비밀번호</div>
+            <div>마스터 · 관리자 전용 비밀번호</div>
+          </div>
+          <div style={{ textAlign:'center', marginTop:20, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
+            v3.0 · © {new Date().getFullYear()} TAE LIM ELECTRONICS
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -328,14 +409,14 @@ function LoginPage({ onLogin }) {
 
 // ─── Header ───────────────────────────────────────────────────
 function Header({ page, setPage, onLogout, role, pendingCount }) {
-  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['report','업무보고'],['settings','설정']];
+  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['settings','설정']];
   return (
     <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10 }}>
-        <TLLogo size={26} />
+        <TLLogo size={30} />
         <div>
-          <div style={{ fontWeight:700, fontSize:12, letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:9, opacity:0.4, letterSpacing:'0.5px', marginTop:1 }}>MANAGEMENT SYSTEM</div>
+          <div style={{ fontWeight:800, fontSize:14, letterSpacing:'-0.5px' }}>태림전자공업㈜</div>
+          <div style={{ fontSize:9, opacity:0.35, letterSpacing:'1px', marginTop:1 }}>MANAGEMENT SYSTEM v3.0</div>
         </div>
       </div>
       <nav style={{ display:'flex', gap:1, alignItems:'center', overflowX:'auto' }}>
@@ -592,8 +673,8 @@ function InvoiceCard({ tenant, reading, calc, colorMode=true, onPrintReady }) {
   const mgmtFee=tenant.mgmtFee!=null?tenant.mgmtFee:tenant.mgmtArea*2500;
   const elevatorFee=tenant.elevator||0;
   const mgmtTotal=elecFee+waterFee+mgmtFee+elevatorFee;
-  const mgmtVat=Math.round(mgmtTotal*0.1);
-  const rentVat=Math.round(tenant.rent*0.1);
+  const mgmtVat=Math.floor(mgmtTotal*0.1);
+  const rentVat=Math.floor(tenant.rent*0.1);
   const grandTotal=tenant.rent+rentVat+mgmtTotal+mgmtVat;
   const elecUsage=totalKwh>0?Math.round(ed.netElecFee*(kwh[fKey]||0)/totalKwh):0;
 
@@ -1631,7 +1712,10 @@ function TenantPage({ tenants, setTenants }) {
                       <DdayBadge dateStr={t.contractEnd} />
                     </div>
 
-                    <button onClick={()=>setEditing(t.id)} style={{ ...btn('secondary'), width:'100%', justifyContent:'center' }}>✏ 수정</button>
+                    <div style={{ display:'flex', gap:8, marginTop:12 }}>
+                      <button onClick={()=>setEditing(t.id)} style={{ ...btn('secondary'), flex:1, justifyContent:'center' }}>✏ 수정</button>
+                      <ContractFileBtn tenantId={t.id} tenantName={t.name} />
+                    </div>
                   </>
                 )}
               </div>
@@ -1983,9 +2067,10 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:13px;backg
 }
 
 // ─── Settings Page ────────────────────────────────────────────
-function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, tenants, setTenants, reading, role }) {
+function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, masterPw, setMasterPw, tenants, setTenants, reading, role }) {
   const [pw1,setPw1]=useState(''); const [pw2,setPw2]=useState(''); const [pwMsg,setPwMsg]=useState('');
   const [apw1,setApw1]=useState(''); const [apw2,setApw2]=useState(''); const [apwMsg,setApwMsg]=useState('');
+  const [mpw1,setMpw1]=useState(''); const [mpw2,setMpw2]=useState(''); const [mpwMsg,setMpwMsg]=useState('');
   // Telegram
   const [tgToken,setTgToken]=useState(()=>store.get('tl_telegram_token')||'');
   const [tgAdmin,setTgAdmin]=useState(()=>store.get('tl_telegram_admin')||'');
@@ -2065,6 +2150,12 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, te
     if(apw1!==apw2){ setApwMsg('비밀번호가 일치하지 않습니다.'); return; }
     setAdminPw(apw1); setApw1(''); setApw2('');
     setApwMsg('✓ 대표 비밀번호가 변경됐습니다.'); setTimeout(()=>setApwMsg(''),3000);
+  };
+  const changeMasterPw=()=>{
+    if(!mpw1){ setMpwMsg('새 비밀번호를 입력하세요.'); return; }
+    if(mpw1!==mpw2){ setMpwMsg('비밀번호가 일치하지 않습니다.'); return; }
+    setMasterPw(mpw1); setMpw1(''); setMpw2('');
+    setMpwMsg('✓ 마스터 비밀번호 변경됐습니다.'); setTimeout(()=>setMpwMsg(''),3000);
   };
   const saveTgSettings=()=>{
     store.set('tl_telegram_token',tgToken);
@@ -2183,7 +2274,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, te
               {pwMsg && <span style={{ fontSize:12.5, color:pwMsg.includes('✓')?C.green:C.red }}>{pwMsg}</span>}
             </div>
           </div>
-          {role==='admin' && (
+          {(role==='admin'||role==='master') && (
             <div>
               <div style={{ fontSize:12.5, fontWeight:600, color:'#854d0e', marginBottom:10 }}>👑 대표 비밀번호</div>
               {[['새 비밀번호',apw1,setApw1],['비밀번호 확인',apw2,setApw2]].map(([lbl,val,set])=>(
@@ -2195,6 +2286,21 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, te
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <button onClick={changeAdminPw} style={btn('amber')}>변경</button>
                 {apwMsg && <span style={{ fontSize:12.5, color:apwMsg.includes('✓')?C.green:C.red }}>{apwMsg}</span>}
+              </div>
+            </div>
+          )}
+          {role==='master' && (
+            <div>
+              <div style={{ fontSize:12.5, fontWeight:600, color:'#6d28d9', marginBottom:10 }}>🔑 마스터 비밀번호</div>
+              {[['새 비밀번호',mpw1,setMpw1],['비밀번호 확인',mpw2,setMpw2]].map(([lbl,val,set])=>(
+                <div key={lbl} style={{ display:'flex', flexDirection:'column', gap:4, marginBottom:8 }}>
+                  <div style={{ fontSize:11.5, color:C.textSub }}>{lbl}</div>
+                  <input type="password" value={val} onChange={e=>set(e.target.value)} style={{ ...baseInput, background:C.white }} />
+                </div>
+              ))}
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <button onClick={changeMasterPw} style={{ ...btn('primary'), background:'linear-gradient(135deg,#6d28d9,#4c1d95)' }}>변경</button>
+                {mpwMsg && <span style={{ fontSize:12.5, color:mpwMsg.includes('✓')?C.green:C.red }}>{mpwMsg}</span>}
               </div>
             </div>
           )}
@@ -2574,6 +2680,386 @@ td{padding:7px 10px;border:1px solid #ddd;font-size:12px;vertical-align:middle;}
   );
 }
 
+// ─── 계약서 파일 버튼 ──────────────────────────────────────────
+function ContractFileBtn({ tenantId, tenantName }) {
+  const key=`tl_contract_${tenantId}`;
+  const [files,setFiles]=useState(()=>store.get(key)||[]);
+  const [open,setOpen]=useState(false);
+  const [imgModal,setImgModal]=useState(null);
+  const fileRef=useRef(null);
+
+  const upload=async(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const dataUrl=await compressImage(file,1600,0.85);
+    if(!dataUrl) return;
+    const next=[...files,{id:Date.now(),name:file.name,url:dataUrl,uploadedAt:new Date().toISOString()}];
+    setFiles(next); store.set(key,next);
+  };
+  const del=(id)=>{ const next=files.filter(f=>f.id!==id); setFiles(next); store.set(key,next); };
+
+  return (
+    <>
+      <button onClick={()=>setOpen(true)}
+        style={{ ...btn(files.length>0?'navyGhost':'secondary'), flex:1, justifyContent:'center', position:'relative' }}>
+        📑 계약서{files.length>0?` (${files.length})`:''}
+      </button>
+
+      {open && (
+        <div onClick={()=>setOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:20, width:'min(90vw,560px)', maxHeight:'80vh', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.3)' }}>
+            <div style={{ background:`linear-gradient(135deg,${C.navyDark},${C.navyMid})`, color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:15 }}>📑 {tenantName} 계약서</div>
+                <div style={{ fontSize:11, opacity:0.7, marginTop:2 }}>업로드된 계약서 {files.length}건</div>
+              </div>
+              <button onClick={()=>setOpen(false)} style={{ background:'rgba(255,255,255,0.15)', border:'none', color:'#fff', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:13 }}>✕ 닫기</button>
+            </div>
+            <div style={{ padding:20, overflowY:'auto', flex:1 }}>
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display:'none' }} onChange={upload} />
+              <button onClick={()=>{ fileRef.current.value=''; fileRef.current.click(); }}
+                style={{ ...btn('primary'), width:'100%', height:44, marginBottom:16, fontSize:14 }}>
+                📷 계약서 사진/파일 추가
+              </button>
+              {files.length===0 && <div style={{ textAlign:'center', color:C.textHint, padding:'24px 0', fontSize:13 }}>업로드된 계약서가 없습니다.</div>}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                {files.map((f,i)=>(
+                  <div key={f.id} style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden' }}>
+                    <img src={f.url} alt={f.name} style={{ width:'100%', height:120, objectFit:'cover', cursor:'zoom-in', display:'block' }} onClick={()=>setImgModal(f.url)} />
+                    <div style={{ padding:'8px 10px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div>
+                        <div style={{ fontSize:11, fontWeight:600, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:140 }}>p.{i+1}</div>
+                        <div style={{ fontSize:10, color:C.textHint }}>{new Date(f.uploadedAt).toLocaleDateString('ko-KR')}</div>
+                      </div>
+                      <button onClick={()=>del(f.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.red, fontSize:16 }}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imgModal && (
+        <div onClick={()=>setImgModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
+          <img src={imgModal} alt="계약서" style={{ maxWidth:'95vw', maxHeight:'95vh', borderRadius:8 }} onClick={e=>e.stopPropagation()} />
+        </div>
+      )}
+    </>
+  );
+}
+
+// ─── 비상연락망 ────────────────────────────────────────────────
+const DEFAULT_CONTACTS = [
+  {id:1, name:'박형준', role:'대표이사 / 소방대장', floor:'대표', phone:''},
+  {id:2, name:'박장혁', role:'소방안전관리자 2급', floor:'소방관리자', phone:''},
+  {id:3, name:'', role:'4층 담당', floor:'4층', phone:''},
+  {id:4, name:'', role:'3층 담당', floor:'3층', phone:''},
+  {id:5, name:'', role:'2층 담당', floor:'2층', phone:''},
+  {id:6, name:'', role:'1층 담당', floor:'1층', phone:''},
+];
+
+function EmergencyContactsPanel() {
+  const [contacts,setContacts]=useState(()=>store.get('tl_emerg_contacts')||DEFAULT_CONTACTS);
+  const [editing,setEditing]=useState(false);
+  const [draft,setDraft]=useState(contacts);
+
+  const save=()=>{ setContacts(draft); store.set('tl_emerg_contacts',draft); setEditing(false); };
+  const upD=(id,f,v)=>setDraft(d=>d.map(c=>c.id===id?{...c,[f]:v}:c));
+
+  const BoxStyle=(color,bg)=>({
+    background:bg, border:`2px solid ${color}`, borderRadius:14, padding:'14px 18px',
+    textAlign:'center', minWidth:130, flex:1,
+  });
+
+  return (
+    <div>
+      <div style={{ ...CARD, background:'linear-gradient(135deg,#7f1d1d,#991b1b)', color:'#fff', marginBottom:14 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:900, letterSpacing:'-0.3px' }}>🔥 긴급 호출 비상 연락망 (소방)</div>
+            <div style={{ fontSize:12, opacity:0.8, marginTop:3 }}>태림전자공업㈜ · 소방안전관리 비상연락체계</div>
+            <div style={{ fontSize:11, opacity:0.6, marginTop:2 }}>{CO_ADDR}</div>
+          </div>
+          <button onClick={()=>{ setDraft(contacts); setEditing(!editing); }}
+            style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'6px 14px', color:'#fff', cursor:'pointer', fontSize:12, fontFamily:'inherit' }}>
+            {editing?'취소':'✏ 편집'}
+          </button>
+        </div>
+      </div>
+
+      {editing ? (
+        <div style={CARD}>
+          <SecHead icon="✏" title="연락망 편집" />
+          {draft.map(c=>(
+            <div key={c.id} style={{ display:'flex', gap:10, marginBottom:10, alignItems:'center', flexWrap:'wrap' }}>
+              <span style={{ fontSize:12, color:C.textSub, minWidth:100, flexShrink:0 }}>{c.role}</span>
+              <input value={c.name} onChange={e=>upD(c.id,'name',e.target.value)} placeholder="이름" style={{ ...baseInput, flex:1, minWidth:100, background:C.white }} />
+              <input value={c.phone} onChange={e=>upD(c.id,'phone',e.target.value)} placeholder="010-0000-0000" style={{ ...baseInput, flex:1, minWidth:130, background:C.white }} />
+            </div>
+          ))}
+          <button onClick={save} style={btn('primary')}>💾 저장</button>
+        </div>
+      ) : (
+        <div>
+          {/* 최상위: 대표이사 */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>
+            <div style={{ ...BoxStyle('#7f1d1d','#fef2f2'), maxWidth:220 }}>
+              <div style={{ fontSize:11, color:'#7f1d1d', fontWeight:700, marginBottom:4 }}>🏢 대표이사 / 소방대장</div>
+              <div style={{ fontSize:16, fontWeight:900, color:'#1a1a1a', marginBottom:6 }}>{contacts[0].name||'(미입력)'}</div>
+              {contacts[0].phone && (
+                <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
+                  <a href={`tel:${contacts[0].phone}`} style={{ background:'#dc2626', color:'#fff', borderRadius:8, padding:'4px 12px', fontSize:11, fontWeight:700, textDecoration:'none' }}>📞 전화</a>
+                  <a href={`sms:${contacts[0].phone}`} style={{ background:'#1d4ed8', color:'#fff', borderRadius:8, padding:'4px 12px', fontSize:11, fontWeight:700, textDecoration:'none' }}>💬 문자</a>
+                </div>
+              )}
+              {!contacts[0].phone && <div style={{ fontSize:11, color:C.textHint }}>전화번호 미입력</div>}
+            </div>
+          </div>
+
+          {/* 연결선 */}
+          <div style={{ display:'flex', justifyContent:'center', height:24 }}>
+            <div style={{ width:2, background:'#dc2626', height:'100%', opacity:0.5 }} />
+          </div>
+
+          {/* 소방안전관리자 */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>
+            <div style={{ ...BoxStyle('#b45309','#fffbeb'), maxWidth:240 }}>
+              <div style={{ fontSize:11, color:'#b45309', fontWeight:700, marginBottom:4 }}>🛡 소방안전관리자 2급</div>
+              <div style={{ fontSize:15, fontWeight:800, color:'#1a1a1a', marginBottom:6 }}>{contacts[1].name||'(미입력)'}</div>
+              {contacts[1].phone && (
+                <div style={{ display:'flex', gap:6, justifyContent:'center' }}>
+                  <a href={`tel:${contacts[1].phone}`} style={{ background:'#dc2626', color:'#fff', borderRadius:8, padding:'4px 12px', fontSize:11, fontWeight:700, textDecoration:'none' }}>📞 전화</a>
+                  <a href={`sms:${contacts[1].phone}`} style={{ background:'#1d4ed8', color:'#fff', borderRadius:8, padding:'4px 12px', fontSize:11, fontWeight:700, textDecoration:'none' }}>💬 문자</a>
+                </div>
+              )}
+              {!contacts[1].phone && <div style={{ fontSize:11, color:C.textHint }}>전화번호 미입력</div>}
+            </div>
+          </div>
+
+          {/* 연결선 분기 */}
+          <div style={{ display:'flex', justifyContent:'center', gap:0, marginBottom:0, position:'relative', height:24 }}>
+            <div style={{ position:'absolute', top:0, left:'50%', transform:'translateX(-50%)', width:'70%', height:1, background:'#dc2626', opacity:0.3 }} />
+            {[0,1,2,3].map(i=>(
+              <div key={i} style={{ flex:1, display:'flex', justifyContent:'center' }}>
+                <div style={{ width:2, height:24, background:'#dc2626', opacity:0.3 }} />
+              </div>
+            ))}
+          </div>
+
+          {/* 층별 담당자 */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
+            {contacts.slice(2).map((c,i)=>(
+              <div key={c.id} style={{ ...BoxStyle('#1d4ed8','#eff6ff') }}>
+                <div style={{ fontSize:11, color:'#1d4ed8', fontWeight:700, marginBottom:4 }}>{c.floor}</div>
+                <div style={{ fontSize:13, fontWeight:700, color:'#1a1a1a', marginBottom:8 }}>{c.name||'(미입력)'}</div>
+                <div style={{ fontSize:11, color:C.textSub, marginBottom:8 }}>{c.role}</div>
+                {c.phone ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <a href={`tel:${c.phone}`} style={{ background:'#dc2626', color:'#fff', borderRadius:6, padding:'4px 8px', fontSize:11, fontWeight:600, textDecoration:'none', display:'block' }}>📞 {c.phone}</a>
+                    <a href={`sms:${c.phone}`} style={{ background:'#1d4ed8', color:'#fff', borderRadius:6, padding:'4px 8px', fontSize:11, fontWeight:600, textDecoration:'none', display:'block' }}>💬 문자</a>
+                  </div>
+                ) : <div style={{ fontSize:11, color:C.textHint }}>번호 미입력</div>}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop:16, background:'#fef9c3', border:'1px solid #fde047', borderRadius:10, padding:'10px 16px', fontSize:12, color:'#854d0e', display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontSize:16 }}>ℹ️</span>
+            <span>이 연락망은 소방 관련 비상 상황 및 교육 시 활용됩니다. "편집" 버튼으로 이름/전화번호를 수정하고 공유하세요.</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Attendance Page (출퇴근) ──────────────────────────────────
+function AttendancePage({ role }) {
+  const [records,setRecords]=useState(()=>store.get('tl_attendance')||[]);
+  const [tab,setTab]=useState('clock');
+  const [empList,setEmpList]=useState(()=>store.get('tl_att_employees')||[{id:1,name:'박장혁',dept:'관리'}]);
+  const [newEmp,setNewEmp]=useState({name:'',dept:''});
+  const [filterDate,setFilterDate]=useState('');
+  const [filterName,setFilterName]=useState('');
+  const [empMsg,setEmpMsg]=useState('');
+
+  const userName=store.get('tl_user_name')||'직원';
+  const today=new Date().toISOString().split('T')[0];
+  const now=()=>new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+
+  const todayRec=records.filter(r=>r.date===today&&r.name===userName);
+  const lastIn=todayRec.filter(r=>r.type==='in').at(-1);
+  const lastOut=todayRec.filter(r=>r.type==='out').at(-1);
+  const alreadyIn=!!lastIn && (!lastOut || new Date(`${today}T${lastIn.time}`)<new Date(`${today}T${lastOut.time}`)?false:true);
+
+  const punch=(type)=>{
+    const rec={id:Date.now(),name:userName,date:today,time:now(),type,ts:new Date().toISOString()};
+    const next=[rec,...records];
+    setRecords(next); store.set('tl_attendance',next);
+  };
+
+  const addEmp=()=>{
+    if(!newEmp.name.trim()){ setEmpMsg('⚠ 이름 입력 필요'); setTimeout(()=>setEmpMsg(''),2000); return; }
+    const next=[...empList,{id:Date.now(),...newEmp}];
+    setEmpList(next); store.set('tl_att_employees',next);
+    setNewEmp({name:'',dept:''});
+  };
+  const delEmp=(id)=>{ const next=empList.filter(e=>e.id!==id); setEmpList(next); store.set('tl_att_employees',next); };
+
+  const filteredRecs=records.filter(r=>{
+    if(filterDate&&r.date!==filterDate) return false;
+    if(filterName&&!r.name.includes(filterName)) return false;
+    if(role==='staff'&&r.name!==userName) return false;
+    return true;
+  });
+
+  const exportCSV=()=>{
+    const rows=[['날짜','이름','구분','시각'],...filteredRecs.map(r=>[r.date,r.name,r.type==='in'?'출근':'퇴근',r.time])];
+    const csv=rows.map(r=>r.join(',')).join('\n');
+    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=`출퇴근기록_${today}.csv`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  };
+
+  const groupByDate=()=>{
+    const map={};
+    filteredRecs.forEach(r=>{ if(!map[r.date]) map[r.date]={}; if(!map[r.date][r.name]) map[r.date][r.name]={in:'',out:''}; if(r.type==='in'&&!map[r.date][r.name].in) map[r.date][r.name].in=r.time; if(r.type==='out') map[r.date][r.name].out=r.time; });
+    return map;
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>출퇴근 관리</span>
+          <span style={{ background:role==='master'?'#f5f3ff':role==='admin'?'#fef9c3':'#eff6ff', color:role==='master'?'#6d28d9':role==='admin'?'#854d0e':'#1d4ed8', border:'1px solid currentColor', borderRadius:20, padding:'2px 10px', fontSize:11, fontWeight:700 }}>
+            {role==='master'?'🔑 마스터':role==='admin'?'👑 대표':'👤 직원'}&nbsp;{userName}
+          </span>
+        </div>
+        <div style={{ display:'flex', gap:6 }}>
+          {[['clock','출퇴근'],['records','기록 조회'],...((role==='admin'||role==='master')?[['emp','직원 관리']]:[])].map(([v,l])=>(
+            <button key={v} onClick={()=>setTab(v)} style={{ ...btn(tab===v?'primary':'secondary'), height:34 }}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* 출퇴근 */}
+      {tab==='clock' && (
+        <div>
+          <div style={{ ...CARD, background:`linear-gradient(135deg,${C.navyDark},${C.navyMid})`, color:'#fff' }}>
+            <div style={{ textAlign:'center', marginBottom:20 }}>
+              <div style={{ fontSize:13, opacity:0.7, marginBottom:4 }}>{new Date().toLocaleDateString('ko-KR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div>
+              <div style={{ fontSize:36, fontWeight:900, letterSpacing:'-1px' }}>{userName}</div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div style={{ background:'rgba(255,255,255,0.1)', borderRadius:12, padding:'14px', textAlign:'center' }}>
+                <div style={{ fontSize:11, opacity:0.7, marginBottom:4 }}>출근</div>
+                <div style={{ fontSize:20, fontWeight:800 }}>{lastIn?lastIn.time:'--:--'}</div>
+              </div>
+              <div style={{ background:'rgba(255,255,255,0.1)', borderRadius:12, padding:'14px', textAlign:'center' }}>
+                <div style={{ fontSize:11, opacity:0.7, marginBottom:4 }}>퇴근</div>
+                <div style={{ fontSize:20, fontWeight:800 }}>{lastOut?lastOut.time:'--:--'}</div>
+              </div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <button onClick={()=>punch('in')}
+                style={{ background:'#fff', color:'#16a34a', border:'none', borderRadius:14, padding:'18px', fontSize:18, fontWeight:900, cursor:'pointer', boxShadow:'0 4px 16px rgba(0,0,0,0.2)', letterSpacing:'-0.3px' }}>
+                ✅ 출 근
+              </button>
+              <button onClick={()=>punch('out')}
+                style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', borderRadius:14, padding:'18px', fontSize:18, fontWeight:900, cursor:'pointer', letterSpacing:'-0.3px' }}>
+                🏃 퇴 근
+              </button>
+            </div>
+          </div>
+
+          {/* 오늘 기록 */}
+          {todayRec.length>0 && (
+            <div style={CARD}>
+              <SecHead icon="📅" title="오늘 기록" />
+              {todayRec.map(r=>(
+                <div key={r.id} style={{ display:'flex', justifyContent:'space-between', padding:'8px 0', borderBottom:`1px solid ${C.tBorder}` }}>
+                  <span style={{ background:r.type==='in'?C.greenBg:C.blueBg, color:r.type==='in'?C.green:C.blue, border:`1px solid ${r.type==='in'?C.greenBorder:C.blueBorder}`, borderRadius:6, padding:'2px 10px', fontSize:12, fontWeight:600 }}>{r.type==='in'?'출근':'퇴근'}</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:C.text }}>{r.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 기록 조회 */}
+      {tab==='records' && (
+        <div>
+          <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+            <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{ ...baseInput, width:'auto', background:C.white }} />
+            {(role==='admin'||role==='master') && <input value={filterName} onChange={e=>setFilterName(e.target.value)} placeholder="이름 검색" style={{ ...baseInput, width:140, background:C.white }} />}
+            {filterDate&&<button onClick={()=>{ setFilterDate(''); setFilterName(''); }} style={{ ...btn('ghost'), height:34, fontSize:12 }}>초기화</button>}
+            {(role==='admin'||role==='master') && <button onClick={exportCSV} style={{ ...btn('navyGhost'), height:34, marginLeft:'auto' }}>⬇ CSV 내보내기</button>}
+          </div>
+          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:440 }}>
+                <thead><tr>{[['날짜','left',100],['이름','left',90],['출근','center',90],['퇴근','center',90],['근무시간','right',90]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {Object.entries(groupByDate()).sort(([a],[b])=>b.localeCompare(a)).flatMap(([date,names])=>
+                    Object.entries(names).map(([name,times],i)=>{
+                      let workTime='—';
+                      if(times.in&&times.out){
+                        const [ih,im]=times.in.split(':').map(Number);
+                        const [oh,om]=times.out.split(':').map(Number);
+                        const diff=(oh*60+om)-(ih*60+im);
+                        if(diff>0) workTime=`${Math.floor(diff/60)}h ${diff%60}m`;
+                      }
+                      return (
+                        <tr key={date+name} style={{ background:i%2===0?C.white:C.tAlt }}>
+                          <td style={TD('left',{fontSize:12})}>{date}</td>
+                          <td style={TD('left',{fontWeight:500})}>{name}</td>
+                          <td style={TD('center',{color:C.green,fontWeight:600})}>{times.in||'—'}</td>
+                          <td style={TD('center',{color:C.blue,fontWeight:600})}>{times.out||'—'}</td>
+                          <td style={TD('right',{fontSize:12,color:C.textSub})}>{workTime}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                  {Object.keys(groupByDate()).length===0 && <tr><td colSpan={5} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>기록이 없습니다.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 직원 관리 (admin/master) */}
+      {tab==='emp' && (role==='admin'||role==='master') && (
+        <div style={CARD}>
+          <SecHead icon="👥" title="직원 목록 관리" />
+          <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', alignItems:'flex-end' }}>
+            <div><div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>이름</div><input value={newEmp.name} onChange={e=>setNewEmp(v=>({...v,name:e.target.value}))} placeholder="이름" style={{ ...baseInput, background:C.white, width:120 }} /></div>
+            <div><div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>부서/직책</div><input value={newEmp.dept} onChange={e=>setNewEmp(v=>({...v,dept:e.target.value}))} placeholder="예: 관리/청소" style={{ ...baseInput, background:C.white, width:140 }} /></div>
+            <button onClick={addEmp} style={{ ...btn('primary'), height:36 }}>+ 추가</button>
+            {empMsg && <span style={{ fontSize:12, color:C.red }}>{empMsg}</span>}
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead><tr>{[['이름','left'],['부서/직책','left'],['','center',40]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+            <tbody>
+              {empList.map((e,i)=>(
+                <tr key={e.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                  <td style={TD('left',{fontWeight:500})}>{e.name}</td>
+                  <td style={TD('left',{color:C.textSub,fontSize:12})}>{e.dept||'—'}</td>
+                  <td style={TD('center')}><button onClick={()=>delEmp(e.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.red, fontSize:16 }}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Approval Page (전자결재 + 긴급호출) ──────────────────────
 const ACCT_CODES = ['현금','보통예금(018)','보통예금(032)','MMF','외상매출금','미수금','선급금','임대보증금','임대수입','관리비수입','전기요금수익','수도요금수익','잡수입','전기요금','수도요금','수선비','경상비','통신비','소모품비','임차료','차량유지비','급여','복리후생비','접대비','세금과공과','감가상각비','잡비'];
 
@@ -2714,10 +3200,11 @@ function ApprovalPage({ role }) {
       {/* 탭 */}
       <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
         {[
-          ...(role==='staff'?[['submit','✏ 결재 요청']]:[]),
+          ...(role==='staff'||role==='master'?[['submit','✏ 결재 요청']]:[]),
           ['pending',`⏳ 결재 대기${pending.length>0?` (${pending.length})`:''}`],
           ['history','📋 결재 현황'],
-          ...(role==='admin'?[['emerglog','🚨 긴급 로그']]:[]),
+          ['contacts','🔥 비상연락망'],
+          ...((role==='admin'||role==='master')?[['emerglog','🚨 긴급 로그']]:[]),
         ].map(([v,l])=>(
           <button key={v} onClick={()=>setTab(v)} style={{ ...btn(tab===v?'primary':'secondary'), height:36 }}>{l}</button>
         ))}
@@ -2811,8 +3298,11 @@ function ApprovalPage({ role }) {
         </div>
       )}
 
+      {/* 비상연락망 */}
+      {tab==='contacts' && <EmergencyContactsPanel />}
+
       {/* 긴급 로그 (대표) */}
-      {tab==='emerglog' && role==='admin' && (
+      {tab==='emerglog' && (role==='admin'||role==='master') && (
         <div style={CARD}>
           <SecHead icon="🚨" title="긴급 호출 기록" />
           {emergLog.length===0 ? <div style={{ textAlign:'center', color:C.textSub, padding:'2rem' }}>기록 없음</div> : (
@@ -2958,7 +3448,7 @@ function VoucherPage({ role }) {
     return true;
   });
   const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
-  const typeBadge={'transfer':{bg:'#eff6ff',c:'#1d4ed8',b:'#bfdbfe'},'income':{bg:C.greenBg,c:C.green,b:C.greenBorder},'expense':{bg:C.redBg,c:C.red,b:C.redBorder}};
+  const typeBadge={'transfer':{bg:'#f5f5f5',c:'#1a1a1a',b:'#ddd'},'income':{bg:C.redBg,c:C.red,b:C.redBorder},'expense':{bg:C.blueBg,c:C.blue,b:C.blueBorder}};
   const totalIncome=displayV.filter(v=>v.type==='income').reduce((s,v)=>s+v.amount,0);
   const totalExpense=displayV.filter(v=>v.type==='expense').reduce((s,v)=>s+v.amount,0);
 
@@ -3109,7 +3599,7 @@ function PageFooter() {
         <div style={{ marginBottom:3, fontSize:11 }}>{CO_ADDR}</div>
         <div style={{ marginBottom:10, fontSize:11 }}>Tel: {CO_TEL}&nbsp;&nbsp;|&nbsp;&nbsp;Fax: {CO_FAX}</div>
         <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:10, fontSize:10, color:'rgba(255,255,255,0.3)' }}>
-          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v2.0
+          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v3.0
         </div>
       </div>
     </footer>
@@ -3130,6 +3620,7 @@ export default function App() {
   const [role,setRole]=useState('staff');
   const [savedPw,setSavedPw]=useState(()=>store.get('tl_pw')||DEFAULT_PASSWORD);
   const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'admin2024');
+  const [masterPw,setMasterPw]=useState(()=>store.get('tl_master_pw')||'master2024');
   const [page,setPage]=useState('input');
   const [approvals,setApprovals]=useState(()=>store.get('tl_approvals')||[]);
   const [reading,setReading]=useState(()=>store.get('tl_reading')||SAMPLE_READING);
@@ -3158,9 +3649,9 @@ export default function App() {
     setTimeout(()=>setSaveMsg(''),3000);
   };
   const handleLogin=(pw)=>{
+    if(pw===masterPw){ setLoggedIn(true); setRole('master'); return true; }
     if(pw===adminPw){ setLoggedIn(true); setRole('admin'); return true; }
     if(pw===savedPw){ setLoggedIn(true); setRole('staff'); return true; }
-    // 등록 사용자 확인
     const users=store.get('tl_users')||[];
     const u=users.find(u=>u.approved&&u.password===pw);
     if(u){ setLoggedIn(true); setRole(u.role||'staff'); store.set('tl_user_name',u.name); return true; }
@@ -3187,8 +3678,9 @@ export default function App() {
         {page==='notice'    && <NoticePage   />}
         {page==='approval'  && <ApprovalPage role={role} />}
         {page==='voucher'   && <VoucherPage  role={role} />}
+        {page==='attendance'&& <AttendancePage role={role} />}
         {page==='report'    && <WorkReportPage />}
-        {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} adminPw={adminPw} setAdminPw={handleSetAdminPw} tenants={tenants} setTenants={handleSetTenants} reading={reading} role={role} />}
+        {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} adminPw={adminPw} setAdminPw={handleSetAdminPw} masterPw={masterPw} setMasterPw={(p)=>{ setMasterPw(p); store.set('tl_master_pw',p); }} tenants={tenants} setTenants={handleSetTenants} reading={reading} role={role} />}
       </main>
       <PageFooter />
     </div>
