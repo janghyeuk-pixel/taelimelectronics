@@ -432,8 +432,8 @@ function Header({ page, setPage, onLogout, role, pendingCount }) {
         })}
         <div style={{ width:1, height:18, background:'rgba(255,255,255,0.12)', margin:'0 5px', flexShrink:0 }} />
         <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-          <span style={{ background:role==='admin'?'rgba(250,204,21,0.25)':'rgba(255,255,255,0.08)', border:`1px solid ${role==='admin'?'rgba(250,204,21,0.5)':'rgba(255,255,255,0.15)'}`, borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, color:role==='admin'?'#fde047':'rgba(255,255,255,0.6)', whiteSpace:'nowrap' }}>
-            {role==='admin'?'👑 대표':'👤 직원'}
+          <span style={{ background:role==='master'?'rgba(167,139,250,0.25)':role==='admin'?'rgba(250,204,21,0.25)':'rgba(255,255,255,0.08)', border:`1px solid ${role==='master'?'rgba(167,139,250,0.5)':role==='admin'?'rgba(250,204,21,0.5)':'rgba(255,255,255,0.15)'}`, borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, color:role==='master'?'#c4b5fd':role==='admin'?'#fde047':'rgba(255,255,255,0.6)', whiteSpace:'nowrap' }}>
+            {role==='master'?'🔑 MASTER':role==='admin'?'👑 대표':'👤'}
           </span>
           <button onClick={onLogout} style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'5px 10px', fontSize:11, cursor:'pointer', color:'rgba(255,255,255,0.5)', fontFamily:'inherit', whiteSpace:'nowrap' }}>로그아웃</button>
         </div>
@@ -1626,10 +1626,11 @@ function HistoryPage({ history, onLoad, onUpdate }) {
 }
 
 // ─── Tenant Page ──────────────────────────────────────────────
-function TenantPage({ tenants, setTenants }) {
+function TenantPage({ tenants, setTenants, role }) {
   const [local,setLocal]=useState(()=>tenants.map(t=>({...t})));
   const [editing,setEditing]=useState(null);
   const [msg,setMsg]=useState('');
+  const isPrivileged = role==='admin'||role==='master';
 
   const upField=(id,field,val)=>setLocal(prev=>prev.map(t=>t.id===id?{...t,[field]:['deposit','rent','area','mgmtArea','elevator'].includes(field)?Number(val)||0:val}:t));
 
@@ -1693,16 +1694,25 @@ function TenantPage({ tenants, setTenants }) {
                 ) : (
                   <>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-                      {[['보증금',`${fmt(t.deposit)}원`],['월차임',`${fmt(t.rent)}원`],['면적',t.area?`${Number(t.area).toLocaleString()}㎡`:'미설정']].map(([label,value])=>(
+                      {isPrivileged && [['보증금',`${fmt(t.deposit)}원`],['월차임',`${fmt(t.rent)}원`]].map(([label,value])=>(
                         <div key={label}>
                           <div style={{ fontSize:11, color:C.textHint, marginBottom:3 }}>{label}</div>
                           <div style={{ fontSize:14, fontWeight:700, color:C.text, fontVariantNumeric:'tabular-nums' }}>{value}</div>
                         </div>
                       ))}
+                      {!isPrivileged && (
+                        <div style={{ gridColumn:'1/-1', background:'#f8fafc', border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px', fontSize:12, color:C.textHint, textAlign:'center' }}>
+                          🔒 금액 정보는 관리자만 열람 가능합니다
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ fontSize:11, color:C.textHint, marginBottom:3 }}>면적</div>
+                        <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{t.area?`${Number(t.area).toLocaleString()}㎡`:'미설정'}</div>
+                      </div>
                       <div>
                         <div style={{ fontSize:11, color:C.textHint, marginBottom:3 }}>계약기간</div>
                         <div style={{ fontSize:11.5, fontWeight:500, color:C.textMid, lineHeight:1.5 }}>
-                          {t.contractStart&&t.contractEnd?`${t.contractStart}\n~ ${t.contractEnd}`:t.contractEnd?`~ ${t.contractEnd}`:'미설정'}
+                          {t.contractStart&&t.contractEnd?`${t.contractStart} ~ ${t.contractEnd}`:t.contractEnd?`~ ${t.contractEnd}`:'미설정'}
                         </div>
                       </div>
                     </div>
@@ -1713,7 +1723,7 @@ function TenantPage({ tenants, setTenants }) {
                     </div>
 
                     <div style={{ display:'flex', gap:8, marginTop:12 }}>
-                      <button onClick={()=>setEditing(t.id)} style={{ ...btn('secondary'), flex:1, justifyContent:'center' }}>✏ 수정</button>
+                      {isPrivileged && <button onClick={()=>setEditing(t.id)} style={{ ...btn('secondary'), flex:1, justifyContent:'center' }}>✏ 수정</button>}
                       <ContractFileBtn tenantId={t.id} tenantName={t.name} />
                     </div>
                   </>
@@ -1724,8 +1734,9 @@ function TenantPage({ tenants, setTenants }) {
         })}
       </div>
 
-      {/* Summary */}
-      <div style={CARD}>
+      {/* Summary - 관리자/마스터만 */}
+      {!isPrivileged && <div style={{ background:'#f8fafc', border:`1px solid ${C.border}`, borderRadius:12, padding:'14px 18px', fontSize:13, color:C.textSub, textAlign:'center' }}>🔒 금액 요약은 관리자만 열람 가능합니다.</div>}
+      {isPrivileged && <div style={CARD}>
         <SecHead icon="📊" title="전체 임차 현황 요약" />
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:16 }}>
           {[
@@ -1757,7 +1768,7 @@ function TenantPage({ tenants, setTenants }) {
             );
           })}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -2868,9 +2879,72 @@ function EmergencyContactsPanel() {
             <span style={{ fontSize:16 }}>ℹ️</span>
             <span>이 연락망은 소방 관련 비상 상황 및 교육 시 활용됩니다. "편집" 버튼으로 이름/전화번호를 수정하고 공유하세요.</span>
           </div>
+
+          {/* 소방 문서 보관함 */}
+          <div style={{ ...CARD, marginTop:14, padding:'18px 20px' }}>
+            <SecHead icon="📁" title="소방·안전 문서 보관함" />
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12 }}>
+              {[
+                {key:'tl_fire_plan', label:'🔥 소방 계획서'},
+                {key:'tl_elevator_inspection', label:'🛗 승강기 정기점검'},
+                {key:'tl_fire_equipment', label:'🧯 소방설비 점검'},
+                {key:'tl_safety_edu', label:'📚 소방교육 기록'},
+              ].map(({key,label})=><SafetyDocBtn key={key} storeKey={key} label={label} />)}
+            </div>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+function SafetyDocBtn({ storeKey, label }) {
+  const [files,setFiles]=useState(()=>store.get(storeKey)||[]);
+  const [open,setOpen]=useState(false);
+  const [imgModal,setImgModal]=useState(null);
+  const fileRef=useRef(null);
+  const upload=async(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const dataUrl=await compressImage(file,1600,0.85);
+    if(!dataUrl) return;
+    const next=[...files,{id:Date.now(),name:file.name,url:dataUrl,date:new Date().toISOString()}];
+    setFiles(next); store.set(storeKey,next);
+  };
+  const del=(id)=>{ const next=files.filter(f=>f.id!==id); setFiles(next); store.set(storeKey,next); };
+  return (
+    <>
+      <button onClick={()=>setOpen(true)} style={{ background:files.length>0?C.navyBg:C.tHead, border:`1px solid ${files.length>0?C.navyBg2:C.tBorder}`, borderRadius:12, padding:'14px 16px', cursor:'pointer', textAlign:'left', width:'100%' }}>
+        <div style={{ fontSize:13, fontWeight:700, color:C.navyDark, marginBottom:4 }}>{label}</div>
+        <div style={{ fontSize:11.5, color:C.textSub }}>{files.length>0?`${files.length}개 파일 저장됨`:'파일 없음 — 클릭하여 추가'}</div>
+      </button>
+      {open && (
+        <div onClick={()=>setOpen(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:'#fff', borderRadius:20, width:'min(90vw,520px)', maxHeight:'80vh', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.3)' }}>
+            <div style={{ background:`linear-gradient(135deg,#7f1d1d,#dc2626)`, color:'#fff', padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ fontWeight:700, fontSize:15 }}>{label}</div>
+              <button onClick={()=>setOpen(false)} style={{ background:'rgba(255,255,255,0.15)', border:'none', color:'#fff', borderRadius:8, padding:'6px 12px', cursor:'pointer', fontSize:13 }}>✕ 닫기</button>
+            </div>
+            <div style={{ padding:20, overflowY:'auto', flex:1 }}>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={upload} />
+              <button onClick={()=>{ fileRef.current.value=''; fileRef.current.click(); }} style={{ ...btn('primary'), width:'100%', height:44, marginBottom:14, fontSize:14 }}>📷 파일 추가 (사진 스캔)</button>
+              {files.length===0 && <div style={{ textAlign:'center', color:C.textHint, padding:'20px 0', fontSize:13 }}>저장된 파일이 없습니다.</div>}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                {files.map((f,i)=>(
+                  <div key={f.id} style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden' }}>
+                    <img src={f.url} alt={f.name} style={{ width:'100%', height:100, objectFit:'cover', cursor:'zoom-in', display:'block' }} onClick={()=>setImgModal(f.url)} />
+                    <div style={{ padding:'7px 10px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div style={{ fontSize:10, color:C.textHint }}>{new Date(f.date).toLocaleDateString('ko-KR')} p.{i+1}</div>
+                      <button onClick={()=>del(f.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.red, fontSize:15 }}>×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {imgModal && <div onClick={()=>setImgModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}><img src={imgModal} alt="" style={{ maxWidth:'95vw', maxHeight:'95vh', borderRadius:8 }} onClick={e=>e.stopPropagation()} /></div>}
+    </>
   );
 }
 
@@ -2901,7 +2975,8 @@ function AttendancePage({ role }) {
 
   const addEmp=()=>{
     if(!newEmp.name.trim()){ setEmpMsg('⚠ 이름 입력 필요'); setTimeout(()=>setEmpMsg(''),2000); return; }
-    const next=[...empList,{id:Date.now(),...newEmp}];
+    const empNo=`EMP-${String(empList.length+1).padStart(3,'0')}`;
+    const next=[...empList,{id:Date.now(),empNo,...newEmp}];
     setEmpList(next); store.set('tl_att_employees',next);
     setNewEmp({name:'',dept:''});
   };
@@ -3043,10 +3118,11 @@ function AttendancePage({ role }) {
             {empMsg && <span style={{ fontSize:12, color:C.red }}>{empMsg}</span>}
           </div>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
-            <thead><tr>{[['이름','left'],['부서/직책','left'],['','center',40]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+            <thead><tr>{[['사번','left',90],['이름','left'],['부서/직책','left'],['','center',40]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
             <tbody>
               {empList.map((e,i)=>(
                 <tr key={e.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                  <td style={TD('left',{fontFamily:'monospace',fontSize:12,fontWeight:700,color:C.navy})}>{e.empNo||`EMP-${String(i+1).padStart(3,'0')}`}</td>
                   <td style={TD('left',{fontWeight:500})}>{e.name}</td>
                   <td style={TD('left',{color:C.textSub,fontSize:12})}>{e.dept||'—'}</td>
                   <td style={TD('center')}><button onClick={()=>delEmp(e.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.red, fontSize:16 }}>×</button></td>
@@ -3673,7 +3749,7 @@ export default function App() {
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
         {page==='quarterly' && <QuarterlyPage history={history} tenants={tenants} />}
         {page==='history'   && <HistoryPage  history={history} onLoad={(h)=>{ onChange(h); setPage('input'); }} onUpdate={(updated)=>{ setHistory(updated); store.set('tl_history',updated); }} />}
-        {page==='tenant'    && <TenantPage   tenants={tenants} setTenants={handleSetTenants} />}
+        {page==='tenant'    && <TenantPage   tenants={tenants} setTenants={handleSetTenants} role={role} />}
         {page==='finance'   && <FinancePage  />}
         {page==='notice'    && <NoticePage   />}
         {page==='approval'  && <ApprovalPage role={role} />}
