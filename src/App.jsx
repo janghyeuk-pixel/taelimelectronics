@@ -315,7 +315,7 @@ function LoginPage({ onLogin }) {
 
 // ─── Header ───────────────────────────────────────────────────
 function Header({ page, setPage, onLogout }) {
-  const tabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['settings','설정']];
+  const tabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['report','업무보고'],['settings','설정']];
   return (
     <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 20px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0, marginRight:12 }}>
@@ -478,6 +478,23 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
       {/* 숨김 파일 입력 */}
       <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFileChange} />
 
+      {/* 이미지 자동 인식 사용 방법 안내 */}
+      <div style={{ background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'12px 16px', marginBottom:12, display:'flex', gap:12, alignItems:'flex-start' }}>
+        <div style={{ fontSize:20, flexShrink:0, marginTop:2 }}>📸</div>
+        <div>
+          <div style={{ fontSize:12.5, fontWeight:700, color:C.navyDark, marginBottom:6 }}>고지서 이미지 자동 인식 사용 방법</div>
+          <div style={{ fontSize:12, color:C.textMid, lineHeight:1.9 }}>
+            <span style={{ background:C.navyMid, color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:11, fontWeight:700, marginRight:5 }}>1</span>전기/수도 고지서 카드에서 <b>📸 이미지 자동 인식</b> 버튼 클릭
+            <span style={{ margin:'0 8px', color:C.textHint }}>→</span>
+            <span style={{ background:C.navyMid, color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:11, fontWeight:700, marginRight:5 }}>2</span>고지서 사진 선택
+            <span style={{ margin:'0 8px', color:C.textHint }}>→</span>
+            <span style={{ background:C.navyMid, color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:11, fontWeight:700, marginRight:5 }}>3</span>AI가 금액 자동 채움
+          </div>
+          <div style={{ fontSize:11.5, color:C.textSub, marginTop:4 }}>⚠ 인식 실패 또는 오류 시: 아래 각 칸에 직접 숫자를 입력하세요. 수동 입력이 항상 가능합니다.</div>
+          <div style={{ fontSize:11, color:C.textHint, marginTop:2 }}>※ 자동 인식을 사용하려면 설정 탭에서 Anthropic API 키를 먼저 등록하세요.</div>
+        </div>
+      </div>
+
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
         {[
           { icon:'📄', title:'전기 고지서 (한전)', type:'elec', rows:[['basicFee','기본요금'],['powerFund','전력산업기반기금'],['totalAmount','전기 고지 총액 ★'],['vat','부가가치세'],['safetyFee','전기안전대행료(월)']], obj:'elecBill' },
@@ -485,10 +502,13 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
         ].map(({icon,title,type,rows,obj})=>(
           <div key={obj} style={CARD}>
             <SecHead icon={icon} title={title} action={
-              <button onClick={()=>triggerAnalyze(type)} disabled={!!analyzing}
-                style={{ ...btn('navyGhost'), height:30, padding:'0 12px', fontSize:12, opacity:analyzing?0.6:1 }}>
-                {analyzing===type ? '⏳ 인식 중…' : '📸 이미지 자동 인식'}
-              </button>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3 }}>
+                <button onClick={()=>triggerAnalyze(type)} disabled={!!analyzing}
+                  style={{ ...btn('navyGhost'), height:30, padding:'0 12px', fontSize:12, opacity:analyzing?0.6:1 }}>
+                  {analyzing===type ? '⏳ 인식 중…' : '📸 자동 인식'}
+                </button>
+                <span style={{ fontSize:10, color:C.textHint }}>실패시 직접 입력↓</span>
+              </div>
             } />
             {rows.length>0 ? rows.map(([k,label])=>(
               <div key={k} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:9 }}>
@@ -513,8 +533,10 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
       </div>
 
       {analyzeErr && (
-        <div style={{ background:C.redBg, border:`1px solid ${C.redBorder}`, borderRadius:10, padding:'10px 14px', fontSize:13, color:C.red, marginTop:4 }}>
-          ⚠ {analyzeErr}
+        <div style={{ background:C.redBg, border:`1px solid ${C.redBorder}`, borderRadius:10, padding:'12px 16px', fontSize:13, color:C.red, marginTop:4 }}>
+          <div style={{ fontWeight:700, marginBottom:4 }}>⚠ 자동 인식 실패</div>
+          <div style={{ fontSize:12, marginBottom:6 }}>{analyzeErr}</div>
+          <div style={{ fontSize:12, color:C.orange, fontWeight:500 }}>→ 위 고지서 카드의 각 항목에 직접 숫자를 입력해주세요. 수동 입력이 가능합니다.</div>
         </div>
       )}
 
@@ -626,7 +648,11 @@ td.l{text-align:left;}td.r{text-align:right;font-variant-numeric:tabular-nums;}
       <td style="padding:10px;text-align:right;font-weight:900;font-size:15px;border-top:2.5px solid #888;font-variant-numeric:tabular-nums;">${fmt(mgmtTotal)} 원</td></tr>
     </table>
   </div>
-  <div class="footer">발행인: 태림전자공업㈜ (인) · 발행일: ${new Date().toLocaleDateString('ko-KR')} · ${CO_ADDR}</div>
+  <div class="footer">
+    <div style="margin-bottom:3px;">발행인: 태림전자공업㈜ (인) &nbsp;|&nbsp; 발행일: ${new Date().toLocaleDateString('ko-KR')} &nbsp;|&nbsp; TEL: ${CO_TEL} / FAX: ${CO_FAX}</div>
+    <div style="margin-bottom:4px;">${CO_ADDR}</div>
+    <div style="border-top:1px dashed #ccc;padding-top:4px;margin-top:4px;">© ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved.</div>
+  </div>
 </div>
 </div>
 <script>window.onload=()=>{setTimeout(()=>window.print(),500);}</script>
@@ -700,7 +726,14 @@ td.l{text-align:left;}td.r{text-align:right;font-variant-numeric:tabular-nums;}
       </tr>
     </table>
   </div>
-  <div style="text-align:center;font-size:11px;color:#888;padding-top:10px;border-top:1px solid #e0e0e0;">발행인: 태림전자공업㈜ (인) · 발행일: ${new Date().toLocaleDateString('ko-KR')} · ${CO_ADDR}</div>
+  <div style="border-top:1px solid #e0e0e0;padding-top:8px;margin-top:4px;">
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-bottom:4px;font-size:10.5px;color:#666;">
+      <span>발행인: 태림전자공업㈜ (인) &nbsp;|&nbsp; 발행일: ${new Date().toLocaleDateString('ko-KR')}</span>
+      <span>TEL: ${CO_TEL} / FAX: ${CO_FAX}</span>
+    </div>
+    <div style="font-size:10px;color:#888;margin-bottom:5px;">${CO_ADDR}</div>
+    <div style="text-align:center;font-size:10px;color:#aaa;border-top:1px dashed #eee;padding-top:5px;">© ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved.</div>
+  </div>
 </div>
 </div>
 <script>window.onload=()=>{setTimeout(()=>window.print(),800);}</script>
@@ -803,7 +836,16 @@ td.l{text-align:left;}td.r{text-align:right;font-variant-numeric:tabular-nums;}
         <div className="no-print" style={{ display:'flex', gap:8, marginBottom:12 }}>
           <button onClick={handleEmail} style={{ ...btn('success'), flex:1 }}>📧 이메일 발송</button>
         </div>
-        <div style={{ fontSize:11.5, color:C.textHint, textAlign:'center', borderTop:`1px solid ${C.tBorder}`, paddingTop:10 }}>발행인: 태림전자공업㈜ (인) · 발행일: {new Date().toLocaleDateString('ko-KR')} · {CO_ADDR}</div>
+        <div style={{ borderTop:`1px solid ${C.tBorder}`, paddingTop:10, marginTop:4 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:4, marginBottom:4 }}>
+            <span style={{ fontSize:11, color:C.textSub }}>발행인: 태림전자공업㈜ (인)&nbsp;&nbsp;|&nbsp;&nbsp;발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+            <span style={{ fontSize:11, color:C.textHint }}>TEL {CO_TEL}&nbsp;&nbsp;FAX {CO_FAX}</span>
+          </div>
+          <div style={{ fontSize:10.5, color:C.textHint, marginBottom:6 }}>{CO_ADDR}</div>
+          <div style={{ display:'flex', justifyContent:'center', borderTop:`1px dashed ${C.border}`, paddingTop:6 }}>
+            <span style={{ fontSize:10, color:C.textHint, letterSpacing:'0.3px' }}>© {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.&nbsp;&nbsp;All Rights Reserved.</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1305,7 +1347,8 @@ function HistoryPage({ history, onLoad, onUpdate }) {
         · 행을 클릭하면 검침값 상세가 펼쳐집니다. &nbsp;· <strong>불러오기</strong>는 해당 월 데이터를 검침 입력 탭에 로드합니다.
       </div>
       <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
-        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+        <div style={{ overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:660 }}>
           <thead><tr>
             {[['청구월','left'],['적용 기간','left'],['전기 고지액','right',120],['수도 고지액','right',120],['첨부','center',50],['저장일','right',90],['','center',80]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}
           </tr></thead>
@@ -1462,6 +1505,7 @@ function HistoryPage({ history, onLoad, onUpdate }) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* 이미지 모달 */}
@@ -1574,17 +1618,35 @@ function TenantPage({ tenants, setTenants }) {
       {/* Summary */}
       <div style={CARD}>
         <SecHead icon="📊" title="전체 임차 현황 요약" />
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:16 }}>
           {[
-            ['총 보증금',`${fmt(local.reduce((s,t)=>s+(t.deposit||0),0))}원`],
-            ['월 임대료 합계',`${fmt(local.reduce((s,t)=>s+(t.rent||0),0))}원`],
-            ['연 임대료 합계',`${fmt(local.reduce((s,t)=>s+(t.rent||0),0)*12)}원`],
-          ].map(([label,value])=>(
-            <div key={label} style={{ textAlign:'center', padding:'14px 12px', background:C.navyBg, borderRadius:12 }}>
-              <div style={{ fontSize:11, color:C.textSub, marginBottom:6 }}>{label}</div>
-              <div style={{ fontSize:15, fontWeight:800, color:C.navyDark, fontVariantNumeric:'tabular-nums' }}>{value}</div>
+            { icon:'🏦', label:'총 보증금', value:`${fmt(local.reduce((s,t)=>s+(t.deposit||0),0))}원`, color:C.navyDark, bg:C.navyBg, border:C.navyBg2 },
+            { icon:'💰', label:'월 임대료 합계', value:`${fmt(local.reduce((s,t)=>s+(t.rent||0),0))}원`, color:C.green, bg:C.greenBg, border:C.greenBorder },
+            { icon:'📅', label:'연 임대료 합계', value:`${fmt(local.reduce((s,t)=>s+(t.rent||0),0)*12)}원`, color:C.blue, bg:C.blueBg, border:C.blueBorder },
+            { icon:'🏢', label:'임차 업체 수', value:`${local.length}개사`, color:C.amber, bg:C.amberBg, border:C.amberBorder },
+          ].map(({icon,label,value,color,bg,border})=>(
+            <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'16px 14px', display:'flex', flexDirection:'column', gap:6 }}>
+              <div style={{ fontSize:18 }}>{icon}</div>
+              <div style={{ fontSize:11, color:C.textSub, fontWeight:500 }}>{label}</div>
+              <div style={{ fontSize:15, fontWeight:800, color, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>{value}</div>
             </div>
           ))}
+        </div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {local.map((t)=>{
+            const d=getDday(t.contractEnd);
+            let statusColor=C.green, statusBg=C.greenBg, statusBrd=C.greenBorder, statusLabel='계약중';
+            if(d===null){ statusColor=C.textSub; statusBg=C.tHead; statusBrd=C.tBorder; statusLabel='기간미설정'; }
+            else if(d<0){ statusColor=C.red; statusBg=C.redBg; statusBrd=C.redBorder; statusLabel='만료됨'; }
+            else if(d<=30){ statusColor=C.red; statusBg=C.redBg; statusBrd=C.redBorder; statusLabel=`D-${d} 만료임박`; }
+            else if(d<=60){ statusColor=C.orange; statusBg=C.orangeBg; statusBrd=C.orangeBorder; statusLabel=`D-${d} 만료예정`; }
+            return (
+              <div key={t.id} style={{ background:statusBg, border:`1px solid ${statusBrd}`, borderRadius:10, padding:'8px 14px', display:'flex', alignItems:'center', gap:8, minWidth:160 }}>
+                <span style={{ fontSize:11.5, fontWeight:700, color:statusColor }}>{t.floor} {t.name}</span>
+                <span style={{ fontSize:11, color:statusColor, opacity:0.8 }}>{statusLabel}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -1597,13 +1659,19 @@ function FinancePage() {
   const [month,setMonth]=useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
   const [accounts,setAccounts]=useState(()=>store.get('tl_finance_accounts')||INITIAL_ACCOUNTS);
   const [txnData,setTxnData]=useState(()=>store.get('tl_finance_txns')||{});
+  const [autoSaveAt,setAutoSaveAt]=useState(null);
 
   const ymData=txnData[month]||{opening:0,rows:[]};
-  const setYmData=(next)=>{ const nd={...txnData,[month]:next}; setTxnData(nd); store.set('tl_finance_txns',nd); };
+  const setYmData=(next)=>{
+    const nd={...txnData,[month]:next};
+    setTxnData(nd);
+    store.set('tl_finance_txns',nd);
+    setAutoSaveAt(new Date());
+  };
 
   const upAcct=(key,field,val)=>{
     const next={...accounts,[key]:{...accounts[key],[field]:Number(val)||0}};
-    setAccounts(next); store.set('tl_finance_accounts',next);
+    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
   };
 
   const computedRows=(()=>{
@@ -1625,11 +1693,37 @@ function FinancePage() {
 
   const inlineInputStyle=(color)=>({ ...baseInput, background:'transparent', border:'1px solid transparent', padding:'3px 5px', borderRadius:6, textAlign:color?'right':'left', color:color||C.text, fontVariantNumeric:color?'tabular-nums':'normal', transition:'border-color 0.15s' });
 
+  const totalIncome=(ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0);
+  const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
+  const lastBalance=computedRows.length>0?computedRows.at(-1).balance:ymData.opening||0;
+
   return (
     <div>
+      {/* 월간 요약 카드 */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
+        {[
+          { icon:'💼', label:'총 잔고 (현재)', value:`${fmt(totalCurr)}원`, color:C.navyDark, bg:C.navyBg, border:C.navyBg2, sub:`전월 대비 ${(totalCurr-totalPrev)>=0?'+':''}${fmt(totalCurr-totalPrev)}원` },
+          { icon:'📥', label:`${monthLabel} 입금 합계`, value:`${fmt(totalIncome)}원`, color:C.blue, bg:C.blueBg, border:C.blueBorder, sub:'이번달 수입' },
+          { icon:'📤', label:`${monthLabel} 출금 합계`, value:`${fmt(totalExpense)}원`, color:C.red, bg:C.redBg, border:C.redBorder, sub:'이번달 지출' },
+          { icon:'📊', label:'최종 잔액', value:`${fmt(lastBalance)}원`, color:C.green, bg:C.greenBg, border:C.greenBorder, sub:'이월잔액 포함' },
+        ].map(({icon,label,value,color,bg,border,sub})=>(
+          <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'16px 14px' }}>
+            <div style={{ fontSize:18, marginBottom:6 }}>{icon}</div>
+            <div style={{ fontSize:11, color:C.textSub, marginBottom:4 }}>{label}</div>
+            <div style={{ fontSize:15, fontWeight:800, color, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px', marginBottom:3 }}>{value}</div>
+            <div style={{ fontSize:10.5, color:C.textHint }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+
       {/* Account Summary */}
       <div style={CARD}>
-        <SecHead icon="🏦" title="예금·잔고 현황" action={<span style={{ fontSize:11.5, color:C.textHint }}>셀 클릭하여 수정</span>} />
+        <SecHead icon="🏦" title="예금·잔고 현황" action={
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {autoSaveAt && <span style={{ fontSize:11, color:C.green }}>✓ 자동저장 {autoSaveAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>}
+            <span style={{ fontSize:11.5, color:C.textHint }}>셀 클릭하여 수정</span>
+          </div>
+        } />
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead><tr>
@@ -1965,21 +2059,34 @@ function SettingsPage({ savedPassword, setSavedPassword, tenants, setTenants, re
 
       <div style={CARD}>
         <SecHead icon="🏢" title="임차인 설정 (청구용)" />
-        <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:16 }}>
-          <thead><tr>{['층','임차인','임대료(원)','관리비 평수','승강기(원)','이메일'].map((h,i)=><th key={h} style={TH(i<2?'left':'right')}>{h}</th>)}</tr></thead>
-          <tbody>
-            {lt.map((t,i)=>(
-              <tr key={t.id} style={{ background:i%2===0?C.white:C.tAlt }}>
-                <td style={TD('left',{fontWeight:500,color:C.navy,width:60})}>{t.floor}</td>
-                <td style={TD('left',{fontWeight:500,width:120})}>{t.name}</td>
-                <td style={TD('right',{width:140})}><NumInput value={t.rent} onChange={v=>upT(i,'rent',v)} /></td>
-                <td style={TD('right',{width:110})}><NumInput value={t.mgmtArea} onChange={v=>upT(i,'mgmtArea',v)} /></td>
-                <td style={TD('right',{width:130})}><NumInput value={t.elevator} onChange={v=>upT(i,'elevator',v)} /></td>
-                <td style={TD('left')}><input type="email" value={t.email||''} onChange={e=>upT(i,'email',e.target.value)} placeholder="example@email.com" style={{ ...baseInput, background:C.white }} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={{ overflowX:'auto', marginBottom:16 }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', minWidth:680 }}>
+            <thead><tr>
+              <th style={TH('left',60)}>층</th>
+              <th style={TH('left',100)}>임차인</th>
+              <th style={TH('right',140)}>임대료(원)</th>
+              <th style={TH('right',110)}>관리비 평수</th>
+              <th style={TH('right',120)}>승강기(원)</th>
+              <th style={TH('left')}>이메일</th>
+            </tr></thead>
+            <tbody>
+              {lt.map((t,i)=>(
+                <tr key={t.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                  <td style={TD('left',{fontWeight:500,color:C.navy})}>{t.floor}</td>
+                  <td style={TD('left',{fontWeight:500})}>{t.name}</td>
+                  <td style={TD('right')}><NumInput value={t.rent} onChange={v=>upT(i,'rent',v)} /></td>
+                  <td style={TD('right')}><NumInput value={t.mgmtArea} onChange={v=>upT(i,'mgmtArea',v)} /></td>
+                  <td style={TD('right')}><NumInput value={t.elevator} onChange={v=>upT(i,'elevator',v)} /></td>
+                  <td style={TD('left',{minWidth:220})}>
+                    <input type="email" value={t.email||''} onChange={e=>upT(i,'email',e.target.value)}
+                      placeholder="example@email.com"
+                      style={{ ...baseInput, background:C.white, minWidth:200 }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <button onClick={saveTenants} style={btn('success')}>저장</button>
           {tenantMsg && <span style={{ fontSize:12.5, color:C.green }}>{tenantMsg}</span>}
@@ -2131,6 +2238,214 @@ function SettingsPage({ savedPassword, setSavedPassword, tenants, setTenants, re
   );
 }
 
+// ─── Work Report Page ─────────────────────────────────────────
+function WorkReportPage() {
+  const today=new Date().toISOString().split('T')[0];
+  const [reportType,setReportType]=useState('daily');
+  const [date,setDate]=useState(today);
+  const [author,setAuthor]=useState(()=>store.get('tl_report_author')||'');
+  const [todayTasks,setTodayTasks]=useState([{id:Date.now(),done:false,text:''}]);
+  const [issues,setIssues]=useState('');
+  const [nextTasks,setNextTasks]=useState([{id:Date.now()+1,text:''}]);
+  const [weekNote,setWeekNote]=useState('');
+
+  const saveAuthor=(v)=>{ setAuthor(v); store.set('tl_report_author',v); };
+  const addTodayTask=()=>setTodayTasks(t=>[...t,{id:Date.now(),done:false,text:''}]);
+  const updTodayTask=(id,field,val)=>setTodayTasks(t=>t.map(r=>r.id===id?{...r,[field]:val}:r));
+  const delTodayTask=(id)=>setTodayTasks(t=>t.filter(r=>r.id!==id));
+  const addNextTask=()=>setNextTasks(t=>[...t,{id:Date.now(),text:''}]);
+  const updNextTask=(id,val)=>setNextTasks(t=>t.map(r=>r.id===id?{...r,text:val}:r));
+  const delNextTask=(id)=>setNextTasks(t=>t.filter(r=>r.id!==id));
+
+  const dateLabel=(ds)=>{
+    const d=new Date(ds); if(isNaN(d)) return ds;
+    const days=['일','월','화','수','목','금','토'];
+    return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+  };
+  const getWeekRange=(ds)=>{
+    const d=new Date(ds); const day=d.getDay();
+    const mon=new Date(d); mon.setDate(d.getDate()-(day===0?6:day-1));
+    const fri=new Date(mon); fri.setDate(mon.getDate()+4);
+    return `${mon.getFullYear()}년 ${mon.getMonth()+1}월 ${mon.getDate()}일 ~ ${fri.getMonth()+1}월 ${fri.getDate()}일`;
+  };
+
+  const handlePrint=()=>{
+    const isWeekly=reportType==='weekly';
+    const titleText=isWeekly?'주간 업무 보고':'일일 업무 보고';
+    const periodText=isWeekly?getWeekRange(date):dateLabel(date);
+    const taskRows=todayTasks.map((t,i)=>`<tr style="background:${i%2===0?'#fff':'#f9fafb'};"><td style="text-align:center;font-size:16px;">${t.done?'✅':'○'}</td><td>${t.text||'—'}</td><td style="text-align:center;font-size:12px;font-weight:600;color:${t.done?'#166534':'#334155'};">${t.done?'완료':'예정'}</td></tr>`).join('');
+    const nextRows=nextTasks.map((t,i)=>`<tr style="background:${i%2===0?'#fff':'#f9fafb'};"><td style="text-align:center;color:#6366f1;font-weight:700;">${i+1}</td><td>${t.text||'—'}</td></tr>`).join('');
+    const weekSection=isWeekly&&weekNote?`<div class="section"><div class="sec-title">주간 종합 의견</div><div class="issues">${weekNote.replace(/\n/g,'<br>')}</div></div>`:'';
+    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:12px;color:#111;background:#fff;}
+.page{max-width:700px;margin:20px auto;}
+.hdr{background:#312e81;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;border-radius:8px 8px 0 0;}
+.hdr-co{font-size:14px;font-weight:700;letter-spacing:2px;}
+.hdr-title{font-size:20px;font-weight:900;letter-spacing:6px;}
+.info{background:#eef2ff;border:1px solid #c7d2fe;border-top:none;padding:10px 20px;display:flex;gap:28px;font-size:12px;color:#334155;flex-wrap:wrap;}
+.info strong{color:#312e81;font-weight:700;}
+.section{margin-top:14px;}
+.sec-title{background:#4f46e5;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;letter-spacing:1px;border-radius:4px 4px 0 0;}
+table{width:100%;border-collapse:collapse;}
+th{background:#f0f0f0;padding:7px 10px;font-size:11px;font-weight:700;text-align:left;border:1px solid #ddd;}
+td{padding:7px 10px;border:1px solid #ddd;font-size:12px;vertical-align:middle;}
+.issues{border:1px solid #ddd;border-top:none;padding:14px 16px;min-height:72px;line-height:1.9;font-size:13px;white-space:pre-wrap;background:#fafafa;}
+.sig{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #ddd;margin-top:16px;border-radius:4px;overflow:hidden;}
+.sig-cell{border-right:1px solid #ddd;padding:8px 12px;min-height:52px;}
+.sig-cell:last-child{border-right:none;}
+.sig-label{font-size:10px;color:#666;font-weight:700;}
+.footer{margin-top:14px;text-align:center;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:8px;}
+@media print{@page{margin:15mm;}body{font-size:11px;}.no-print{display:none!important;}}
+</style></head><body>
+<div class="page">
+  <div class="hdr">
+    <div><div class="hdr-co">태림전자공업㈜</div><div style="font-size:10px;opacity:0.6;margin-top:3px;">${CO_ADDR}</div></div>
+    <div class="hdr-title">${titleText}</div>
+  </div>
+  <div class="info">
+    <span><strong>기간:</strong> ${periodText}</span>
+    <span><strong>작성자:</strong> ${author||'—'}</span>
+    <span><strong>출력일:</strong> ${new Date().toLocaleDateString('ko-KR')}</span>
+  </div>
+  <div class="section">
+    <div class="sec-title">${isWeekly?'주간':'금일'} 수행 업무</div>
+    <table><thead><tr><th style="width:36px;">완료</th><th>업무 내용</th><th style="width:56px;">상태</th></tr></thead><tbody>${taskRows}</tbody></table>
+  </div>
+  <div class="section">
+    <div class="sec-title">특이사항 / 비고</div>
+    <div class="issues">${issues.replace(/\n/g,'<br>')||'해당 없음'}</div>
+  </div>
+  <div class="section">
+    <div class="sec-title">${isWeekly?'차주':'익일'} 예정 업무</div>
+    <table><thead><tr><th style="width:28px;">No.</th><th>예정 업무</th></tr></thead><tbody>${nextRows}</tbody></table>
+  </div>
+  ${weekSection}
+  <div class="sig">
+    <div class="sig-cell"><div class="sig-label">작 성</div></div>
+    <div class="sig-cell"><div class="sig-label">검 토</div></div>
+    <div class="sig-cell"><div class="sig-label">승 인</div></div>
+  </div>
+  <div class="footer">태림전자공업㈜ &nbsp;|&nbsp; ${CO_ADDR} &nbsp;|&nbsp; Tel: ${CO_TEL} &nbsp;|&nbsp; © ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.</div>
+</div>
+<script>window.onload=()=>window.print();</script>
+</body></html>`;
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const w=window.open(url,'_blank');
+    if(!w){alert('팝업이 차단되어 있습니다.\n브라우저에서 팝업을 허용해주세요.'); return;}
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  };
+
+  const FL=({text})=><div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>{text}</div>;
+
+  return (
+    <div>
+      <div style={CARD}>
+        <SecHead icon="📝" title="업무 보고서 작성" />
+        <div style={{ display:'flex', gap:14, flexWrap:'wrap', alignItems:'flex-end', marginBottom:4 }}>
+          <div>
+            <FL text="보고 유형" />
+            <div style={{ display:'flex', background:C.white, border:`1px solid ${C.border}`, borderRadius:20, overflow:'hidden' }}>
+              {[['daily','일일 보고'],['weekly','주간 보고']].map(([v,label])=>(
+                <button key={v} onClick={()=>setReportType(v)} style={{ ...btn(reportType===v?'active':'inactive'), borderRadius:0, height:34 }}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex:1, minWidth:160 }}>
+            <FL text={reportType==='weekly'?'해당 주 날짜 (아무 날이나)':'보고 날짜'} />
+            <input type="date" value={date} onChange={e=>setDate(e.target.value)} style={{ ...baseInput, background:C.white }} />
+          </div>
+          <div style={{ flex:1, minWidth:140 }}>
+            <FL text="작성자" />
+            <input value={author} onChange={e=>saveAuthor(e.target.value)} placeholder="이름 입력" style={{ ...baseInput, background:C.white }} />
+          </div>
+        </div>
+        <div style={{ background:C.navyBg, borderRadius:10, padding:'8px 14px', fontSize:12, color:C.navyMid, marginTop:10 }}>
+          {reportType==='weekly'?`📅 보고 기간: ${getWeekRange(date)}`:`📅 보고 날짜: ${dateLabel(date)}`}
+        </div>
+      </div>
+
+      <div style={CARD}>
+        <SecHead icon="✅" title={reportType==='weekly'?'주간 수행 업무':'금일 수행 업무'}
+          action={<button onClick={addTodayTask} style={{ ...btn('navyGhost'), height:28, padding:'0 12px', fontSize:12 }}>+ 항목 추가</button>} />
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {todayTasks.map((task,i)=>(
+            <div key={task.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <button onClick={()=>updTodayTask(task.id,'done',!task.done)}
+                style={{ flexShrink:0, width:30, height:30, borderRadius:8, border:`2px solid ${task.done?C.navyMid:C.border}`, background:task.done?C.navyMid:C.white, color:'#fff', cursor:'pointer', fontSize:15, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                {task.done?'✓':''}
+              </button>
+              <input value={task.text} onChange={e=>updTodayTask(task.id,'text',e.target.value)}
+                placeholder={`업무 항목 ${i+1}`}
+                style={{ ...baseInput, flex:1, background:C.white, textDecoration:task.done?'line-through':'none', color:task.done?C.textSub:C.text }} />
+              <span style={{ fontSize:11, color:task.done?C.green:C.textHint, minWidth:36, textAlign:'center', fontWeight:600, flexShrink:0 }}>{task.done?'완료':'예정'}</span>
+              {todayTasks.length>1 && (
+                <button onClick={()=>delTodayTask(task.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px', flexShrink:0 }}>×</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={CARD}>
+        <SecHead icon="⚠" title="특이사항 / 비고" />
+        <textarea value={issues} onChange={e=>setIssues(e.target.value)} rows={4}
+          placeholder="특이사항이 없으면 비워두세요."
+          style={{ ...baseInput, background:C.white, resize:'vertical', lineHeight:1.85 }} />
+      </div>
+
+      <div style={CARD}>
+        <SecHead icon="📌" title={reportType==='weekly'?'차주 예정 업무':'익일 예정 업무'}
+          action={<button onClick={addNextTask} style={{ ...btn('navyGhost'), height:28, padding:'0 12px', fontSize:12 }}>+ 항목 추가</button>} />
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {nextTasks.map((task,i)=>(
+            <div key={task.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ flexShrink:0, width:26, height:26, borderRadius:6, background:C.navyBg, color:C.navyMid, fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>{i+1}</span>
+              <input value={task.text} onChange={e=>updNextTask(task.id,e.target.value)}
+                placeholder={`예정 업무 ${i+1}`}
+                style={{ ...baseInput, flex:1, background:C.white }} />
+              {nextTasks.length>1 && (
+                <button onClick={()=>delNextTask(task.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px', flexShrink:0 }}>×</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {reportType==='weekly' && (
+        <div style={CARD}>
+          <SecHead icon="📊" title="주간 종합 의견" />
+          <textarea value={weekNote} onChange={e=>setWeekNote(e.target.value)} rows={4}
+            placeholder="주간 성과, 이슈, 개선점 등을 입력하세요."
+            style={{ ...baseInput, background:C.white, resize:'vertical', lineHeight:1.85 }} />
+        </div>
+      )}
+
+      <div style={{ display:'flex', gap:10, marginTop:8 }}>
+        <button onClick={handlePrint} style={btn('primary')}>🖨️ PDF 출력 / 인쇄</button>
+        <span style={{ fontSize:12, color:C.textSub, alignSelf:'center' }}>서명란 포함 A4 양식으로 출력됩니다</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page Footer ───────────────────────────────────────────────
+function PageFooter() {
+  return (
+    <footer style={{ background:`linear-gradient(135deg,${C.navyDark},#1e1b4b)`, color:'rgba(255,255,255,0.45)', padding:'20px 24px', marginTop:24, textAlign:'center', fontSize:11 }}>
+      <div style={{ maxWidth:980, margin:'0 auto' }}>
+        <div style={{ marginBottom:5, fontSize:13, fontWeight:700, color:'rgba(255,255,255,0.8)', letterSpacing:'0.5px' }}>태림전자공업㈜ &nbsp;·&nbsp; TAE LIM ELECTRONICS CO., LTD.</div>
+        <div style={{ marginBottom:3, fontSize:11 }}>{CO_ADDR}</div>
+        <div style={{ marginBottom:10, fontSize:11 }}>Tel: {CO_TEL}&nbsp;&nbsp;|&nbsp;&nbsp;Fax: {CO_FAX}</div>
+        <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:10, fontSize:10, color:'rgba(255,255,255,0.3)' }}>
+          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v6.1
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 // ─── App Root ──────────────────────────────────────────────────
 export default function App() {
   useEffect(()=>{
@@ -2187,8 +2502,10 @@ export default function App() {
         {page==='tenant'    && <TenantPage   tenants={tenants} setTenants={handleSetTenants} />}
         {page==='finance'   && <FinancePage  />}
         {page==='notice'    && <NoticePage   />}
+        {page==='report'    && <WorkReportPage />}
         {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} tenants={tenants} setTenants={handleSetTenants} reading={reading} />}
       </main>
+      <PageFooter />
     </div>
   );
 }
