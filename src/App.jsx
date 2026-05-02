@@ -3921,10 +3921,16 @@ export default function App() {
   };
   // Firebase 로그인
   const handleLogin=async(email,password)=>{
+    // ── 긴급 로컬 비밀번호 (Firebase 설정 전 임시) ──
+    if(password===masterPw){ setLoggedIn(true); setRole('master'); store.set('tl_user_name','마스터'); return {ok:true}; }
+    if(password===adminPw){  setLoggedIn(true); setRole('admin');  store.set('tl_user_name','대표');   return {ok:true}; }
+    if(password===savedPw){  setLoggedIn(true); setRole('staff');  store.set('tl_user_name','직원');   return {ok:true}; }
+
+    // ── Firebase 로그인 ──
     try {
       const cred=await signInWithEmailAndPassword(auth,email,password);
       const snap=await getDoc(doc(db,'users',cred.user.uid));
-      if(!snap.exists()){ await signOut(auth); return {ok:false,error:'사용자 정보가 없습니다.'}; }
+      if(!snap.exists()){ await signOut(auth); return {ok:false,error:'사용자 정보가 없습니다. 회원가입을 먼저 해주세요.'}; }
       const profile=snap.data();
       if(!profile.approved){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다. 대표님께 문의하세요.'}; }
       setRole(profile.role||'staff');
@@ -3933,7 +3939,13 @@ export default function App() {
       setLoggedIn(true);
       return {ok:true};
     } catch(e){
-      const msg={'auth/user-not-found':'등록되지 않은 이메일입니다.','auth/wrong-password':'비밀번호가 올바르지 않습니다.','auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않습니다.','auth/too-many-requests':'로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.'};
+      const msg={
+        'auth/user-not-found':'등록되지 않은 이메일입니다.',
+        'auth/wrong-password':'비밀번호가 올바르지 않습니다.',
+        'auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않습니다.',
+        'auth/too-many-requests':'잠시 후 다시 시도해주세요.',
+        'auth/network-request-failed':'네트워크 연결을 확인해주세요.',
+      };
       return {ok:false, error:msg[e.code]||e.message};
     }
   };
