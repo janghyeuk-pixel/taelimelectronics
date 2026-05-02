@@ -1028,7 +1028,7 @@ td.l{text-align:left;}td.r{text-align:right;font-variant-numeric:tabular-nums;}
         <div><span style={{ fontSize:11, color:C.textSub }}>수신 </span><span style={{ fontSize:13.5, fontWeight:700, color:col?C.navy:'#000' }}>{tenant.fullName}</span><span style={{ fontSize:12, color:C.textSub, marginLeft:6 }}>{tenant.floor}</span></div>
         <div style={{ textAlign:'right' }}><div style={{ fontSize:14, fontWeight:700, color:col?C.navy:'#000' }}>{billingMonth}</div><div style={{ fontSize:11, color:C.textSub }}>{reading.periodStart} ~ {reading.periodEnd}</div></div>
       </div>
-      <div style={{ padding:'20px 22px' }}>
+      <div style={{ padding:'14px 18px' }}>
         <div style={{ background:hdrBg, color:'#fff', padding:'14px 18px', borderRadius:col?10:0, display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
           <div><div style={{ fontSize:11, opacity:0.75 }}>이번 달 청구 총액 (VAT 포함)</div><div style={{ fontSize:10, opacity:0.55, marginTop:2 }}>임대료 + 관리비</div></div>
           <div style={{ fontSize:22, fontWeight:800, letterSpacing:'-0.5px', fontVariantNumeric:'tabular-nums' }}>{fmt(grandTotal)} 원</div>
@@ -3424,10 +3424,15 @@ function ApprovalPage({ role }) {
   return (
     <div>
       {/* 긴급호출 패널 */}
-      <div style={{ background:'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)', borderRadius:16, padding:'18px 22px', marginBottom:16, boxShadow:'0 8px 32px rgba(220,38,38,0.35)' }}>
+      <div style={{ background:'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)', borderRadius:16, padding:'20px 24px', marginBottom:16, boxShadow:'0 8px 32px rgba(220,38,38,0.35)' }}>
+        {/* 상단 타이틀 */}
+        <div style={{ textAlign:'center', marginBottom:18, borderBottom:'1px solid rgba(255,255,255,0.2)', paddingBottom:16 }}>
+          <div style={{ fontSize:28, fontWeight:900, color:'#fff', letterSpacing:'4px', textShadow:'0 3px 12px rgba(0,0,0,0.4)', fontFamily:"'Arial Black',Arial,sans-serif" }}>전자결재 · 소방안전</div>
+          <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.55)', marginTop:6, letterSpacing:'3px', fontWeight:600 }}>ELECTRONIC APPROVAL &nbsp;|&nbsp; FIRE SAFETY</div>
+        </div>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:14 }}>
           <div style={{ color:'#fff' }}>
-            <div style={{ fontSize:16, fontWeight:900, letterSpacing:'-0.3px', marginBottom:4 }}>🚨 긴급 호출</div>
+            <div style={{ fontSize:17, fontWeight:900, letterSpacing:'-0.3px', marginBottom:4 }}>🚨 긴급 호출</div>
             <div style={{ fontSize:12, opacity:0.85, marginBottom:3 }}>누르면 대표님 Telegram에 즉시 알림 · 5분 후 미확인 시 재전송</div>
             {emergLog.length>0 && <div style={{ fontSize:11, opacity:0.65 }}>최근 호출: {new Date(emergLog[0].at).toLocaleString('ko-KR')} {emergLog[0].confirmed&&'(확인됨)'}</div>}
           </div>
@@ -3693,9 +3698,14 @@ function VoucherPage({ role }) {
       <div class="field"><div class="field-label">계정과목</div><div class="field-val">${v.account}</div></div>
       <div class="field"><div class="field-label">${v.type==='income'?'입금처':'지출처'}</div><div class="field-val">${v.payee||'—'}</div></div>
     </div>`}
-    <div class="amount">₩ ${Number(v.amount).toLocaleString('ko-KR')} 원</div>
-    <div style="font-size:10px;color:#555;margin-bottom:3px;">적요 (내용)</div>
-    <div class="note">${v.note||'—'}</div>
+    <div class="amount" style="border-color:${v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111'};color:${v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111'};">
+      ₩ ${Number(v.amount).toLocaleString('ko-KR')} 원
+    </div>
+    <div style="font-size:10px;color:#555;margin-bottom:3px;font-weight:700;">적요 (내용)</div>
+    <div class="note">${v.note||'(없음)'}</div>
+    ${v.payee?`<div style="font-size:11px;color:#555;margin-bottom:6px;"><b>${v.type==='income'?'입금처':'지출처'}:</b> ${v.payee}</div>`:''}
+    ${v.fileName?`<div style="font-size:11px;color:#555;"><b>첨부:</b> ${v.fileName}</div>`:''}
+
     <div class="sig">
       <div class="sig-cell"><div class="sig-label">작 성</div></div>
       <div class="sig-cell"><div class="sig-label">검 토</div></div>
