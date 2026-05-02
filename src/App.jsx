@@ -354,27 +354,48 @@ function RegisterPage({ onBack, onDone }) {
     if(form.password.length<6){ setErr('비밀번호는 6자 이상이어야 합니다.'); return; }
     setLoading(true); setErr('');
     try {
-      // 첫 번째 사용자인지 확인
-      const snap=await getDocs(collection(db,'users'));
-      const isFirst=snap.empty;
+      // Firebase Auth 계정 생성
       const cred=await createUserWithEmailAndPassword(auth,form.email.trim(),form.password);
-      const empNo=`EMP-${String(snap.size+1).padStart(3,'0')}`;
-      const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
-        role:isFirst?'master':'pending', approved:isFirst, empNo,
-        createdAt:new Date().toISOString() };
-      await setDoc(doc(db,'users',cred.user.uid),profile);
-      // 첫 사용자 아니면 로그아웃 후 승인 대기
+
+      // Firestore에 프로필 저장 (타임아웃 5초)
+      let isFirst=false;
+      try {
+        const fsPromise=getDocs(collection(db,'users'));
+        const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
+        const snap=await Promise.race([fsPromise,timeout]);
+        isFirst=snap.empty;
+        const empNo=`EMP-${String(snap.size+1).padStart(3,'0')}`;
+        const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
+          role:isFirst?'master':'pending', approved:isFirst, empNo,
+          createdAt:new Date().toISOString() };
+        await setDoc(doc(db,'users',cred.user.uid),profile);
+      } catch(fsErr){
+        // Firestore 실패해도 Auth 계정은 생성됨 — master로 처리
+        isFirst=true;
+        try {
+          await setDoc(doc(db,'users',cred.user.uid),{
+            name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
+            role:'master', approved:true, empNo:'EMP-001', createdAt:new Date().toISOString()
+          });
+        } catch(_){}
+      }
+
       if(!isFirst){ await signOut(auth); }
       // Telegram 알림
-      const tgToken=store.get('tl_telegram_token');
-      const tgAdmin=store.get('tl_telegram_admin');
-      if(tgToken&&tgAdmin&&!isFirst){
-        await sendTelegram(tgToken,tgAdmin,`👤 <b>새 회원가입 요청</b>\n\n이름: ${form.name}\n이메일: ${form.email}\n부서: ${form.dept||'미입력'}\n사번: ${empNo}\n\n관리자 설정에서 승인해주세요.`);
+      if(!isFirst){
+        const tgToken=store.get('tl_telegram_token');
+        const tgAdmin=store.get('tl_telegram_admin');
+        if(tgToken&&tgAdmin) await sendTelegram(tgToken,tgAdmin,`👤 <b>새 회원가입 요청</b>\n\n이름: ${form.name}\n이메일: ${form.email}\n\n관리자 설정에서 승인해주세요.`);
       }
       setDone(true);
       if(isFirst) onDone?.();
     } catch(e){
-      const msg={'auth/email-already-in-use':'이미 사용 중인 이메일입니다.','auth/invalid-email':'이메일 형식이 올바르지 않습니다.'};
+      const msg={
+        'auth/email-already-in-use':'이미 사용 중인 이메일입니다. 로그인을 시도해보세요.',
+        'auth/invalid-email':'이메일 형식이 올바르지 않습니다.',
+        'auth/weak-password':'비밀번호가 너무 약합니다.',
+        'auth/network-request-failed':'네트워크 오류. 인터넷 연결을 확인해주세요.',
+      };
       setErr(msg[e.code]||e.message);
     }
     setLoading(false);
