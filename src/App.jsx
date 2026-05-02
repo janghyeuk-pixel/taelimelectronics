@@ -476,19 +476,17 @@ function LoginPage({ onLogin, onGoogleLogin }) {
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', padding:'20px', boxSizing:'border-box' }}>
-      {/* 배경 */}
-      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 50%,#0a1628 100%)', zIndex:0 }} />
-      <div style={{ position:'fixed', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px', zIndex:0 }} />
-      <div style={{ position:'fixed', top:'10%', left:'10%', width:400, height:400, borderRadius:'50%', background:'radial-gradient(circle,rgba(99,102,241,0.12) 0%,transparent 65%)', pointerEvents:'none', zIndex:0 }} />
-      <div style={{ position:'fixed', bottom:'10%', right:'10%', width:300, height:300, borderRadius:'50%', background:'radial-gradient(circle,rgba(139,92,246,0.08) 0%,transparent 65%)', pointerEvents:'none', zIndex:0 }} />
+      {/* 배경 사진 */}
+      <div style={{ position:'fixed', inset:0, backgroundImage:'url(/bg.jpg)', backgroundSize:'cover', backgroundPosition:'center top', zIndex:0 }} />
+      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,rgba(6,6,26,0.80) 0%,rgba(15,15,46,0.72) 50%,rgba(10,22,40,0.82) 100%)', zIndex:0 }} />
 
       {/* 카드 */}
-      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(255,255,255,0.03)', backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.4)' }}>
+      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(10,10,30,0.55)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.5)' }}>
         {/* 로고 + 회사명 */}
-        <div style={{ textAlign:'center', marginBottom:32 }}>
+        <div style={{ textAlign:'center', marginBottom:28 }}>
           <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogoHero size={60} /></div>
-          <div style={{ fontSize:19, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.35)', letterSpacing:'2px', marginTop:4, textTransform:'uppercase' }}>Management System v3.0</div>
+          <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', letterSpacing:'1.5px', marginTop:4, textTransform:'uppercase' }}>구로디지털단지 · 통합 관리 시스템</div>
         </div>
 
         {/* Google 로그인 */}
