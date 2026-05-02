@@ -451,16 +451,19 @@ function RegisterPage({ onBack, onDone }) {
 
 // ─── Login ────────────────────────────────────────────────────
 function LoginPage({ onLogin, onGoogleLogin }) {
-  const [email,setEmail]=useState(''); const [pw,setPw]=useState('');
+  const [pw,setPw]=useState('');
   const [err,setErr]=useState(''); const [loading,setLoading]=useState(false);
   const [gLoading,setGLoading]=useState(false);
   const [showReg,setShowReg]=useState(false);
+  const [showEmail,setShowEmail]=useState(false);
+  const [email,setEmail]=useState('');
 
   const go=async()=>{
-    if(!email.trim()||!pw){ setErr('이메일과 비밀번호를 입력하세요.'); return; }
+    if(!pw){ setErr('비밀번호를 입력하세요.'); return; }
     setLoading(true); setErr('');
-    const result=await onLogin(email.trim(),pw);
-    if(!result.ok){ setErr(result.error||'로그인 실패'); setPw(''); }
+    // 이메일 없으면 더미로 처리 (로컬 비밀번호 우선)
+    const result=await onLogin(email.trim()||'local@taelim.com', pw);
+    if(!result.ok){ setErr(result.error||'비밀번호가 올바르지 않습니다.'); setPw(''); }
     setLoading(false);
   };
   const googleGo=async()=>{
@@ -504,17 +507,20 @@ function LoginPage({ onLogin, onGoogleLogin }) {
         </div>
 
         {/* 이메일/비밀번호 */}
-        <div style={{ marginBottom:10 }}>
-          <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>이메일</div>
-          <input type="email" placeholder="example@email.com" value={email}
-            onChange={e=>{setEmail(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}` }} />
-        </div>
+        {showEmail && (
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>이메일</div>
+            <input type="email" placeholder="example@email.com" value={email}
+              onChange={e=>{setEmail(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
+              style={{ ...inp }} />
+          </div>
+        )}
         <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>비밀번호</div>
-          <input type="password" placeholder="비밀번호" value={pw}
+          <input type="password" placeholder="비밀번호 입력" value={pw}
             onChange={e=>{setPw(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}` }} />
+            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}`, fontSize:16 }}
+            autoFocus />
           {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
         </div>
 
@@ -526,7 +532,11 @@ function LoginPage({ onLogin, onGoogleLogin }) {
           style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px', fontSize:13, color:'rgba(255,255,255,0.5)', cursor:'pointer', boxSizing:'border-box' }}>
           계정이 없으신가요? 회원가입
         </button>
-        <div style={{ textAlign:'center', marginTop:16, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
+        <button onClick={()=>setShowEmail(!showEmail)}
+          style={{ width:'100%', background:'transparent', border:'none', padding:'6px', fontSize:11, color:'rgba(255,255,255,0.2)', cursor:'pointer', marginTop:4, boxSizing:'border-box' }}>
+          {showEmail?'↑ 이메일 숨기기':'이메일 계정으로 로그인'}
+        </button>
+        <div style={{ textAlign:'center', marginTop:4, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
           © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.
         </div>
       </div>
@@ -536,7 +546,7 @@ function LoginPage({ onLogin, onGoogleLogin }) {
 
 // ─── Header ───────────────────────────────────────────────────
 function Header({ page, setPage, onLogout, role, pendingCount }) {
-  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['settings','설정']];
+  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
   return (
     <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10 }}>
@@ -3871,6 +3881,272 @@ function VoucherPage({ role }) {
   );
 }
 
+// ─── Manual Page (사용 설명서) ────────────────────────────────
+function ManualPage() {
+  const [activeSection,setActiveSection]=useState(null);
+
+  const sections=[
+    {
+      icon:'🔐', title:'로그인 방법', color:'#4f46e5',
+      desc:'사이트에 처음 접속할 때 비밀번호를 입력합니다',
+      steps:[
+        { title:'사이트 접속', detail:'인터넷 브라우저(크롬 권장)를 열고 주소창에 사이트 주소를 입력합니다. 즐겨찾기에 저장해 두시면 편합니다.' },
+        { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 대표님 비밀번호: admin2024\n▸ 직원 비밀번호: taelim2024\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
+        { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
+        { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
+        { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 장혁에게 연락 주세요.' },
+      ],
+      tip:'💡 로그인 화면 하단 [이메일로 로그인] 버튼은 직원 개인 계정용입니다. 대표님은 위 비밀번호로 로그인하시면 됩니다.',
+    },
+    {
+      icon:'⚡', title:'검침 입력', color:'#d97706',
+      desc:'매월 전기·수도 계량기 숫자를 기록합니다',
+      steps:[
+        { title:'검침 입력 탭 클릭', detail:'상단 메뉴에서 [검침 입력]을 클릭합니다.' },
+        { title:'적용 기간 입력', detail:'이번 달 검침 기간을 입력합니다.\n예) 시작일: 2025-05-08 / 종료일: 2025-06-07\n달력 아이콘을 클릭하거나 직접 숫자를 입력할 수 있습니다.' },
+        { title:'전기 검침값 입력', detail:'각 층별로 [전월] 숫자와 [금월] 숫자를 입력합니다.\n▸ 전월: 지난달 계량기 숫자\n▸ 금월: 이번달 계량기 숫자\n(계량기 화면에 표시된 숫자 그대로 입력)' },
+        { title:'수도 검침값 입력', detail:'전기와 동일하게 각 층별로 전월/금월 수도 계량기 숫자를 입력합니다.' },
+        { title:'수도 요금 청구 여부', detail:'수도 요금을 이번 달에 청구할지 선택합니다.\n▸ O: 이번 달 수도 요금 청구함\n▸ X: 이번 달 수도 요금 청구 안 함 (격월 청구 시 사용)' },
+        { title:'전기·수도 고지서 금액 입력', detail:'한전에서 온 전기 고지서와 수도 고지서의 금액을 입력합니다.\n▸ 전기: 기본요금, 전력산업기반기금, 총요금, 부가세, 안전관리비 등\n▸ 수도: 총요금, 기본요금' },
+        { title:'고지서 사진 첨부 (선택)', detail:'고지서 사진을 찍어 첨부하면 나중에 확인할 수 있습니다. [📸] 버튼을 클릭하여 사진을 선택합니다.' },
+        { title:'히스토리 저장', detail:'모든 입력이 끝나면 하단 [💾 히스토리 저장] 버튼을 클릭합니다. 저장 완료 메시지가 표시되면 성공입니다.' },
+      ],
+      tip:'💡 숫자를 잘못 입력했을 경우 언제든지 다시 수정하고 저장할 수 있습니다. 히스토리 탭에서 이전 달 기록도 확인할 수 있습니다.',
+    },
+    {
+      icon:'📋', title:'청구서 발행', color:'#312e81',
+      desc:'임차인에게 관리비 청구서를 출력하거나 이메일로 보냅니다',
+      steps:[
+        { title:'청구서 탭 클릭', detail:'상단 메뉴에서 [청구서]를 클릭합니다.' },
+        { title:'업체 선택', detail:'화면 상단에서 청구서를 발행할 업체를 선택합니다.\n▸ 1층 웨지우드 / 2층 태하무역 / 3층 유연어패럴' },
+        { title:'청구 내용 확인', detail:'자동으로 계산된 청구 내용이 표시됩니다.\n▸ 임대료, 관리비, 전기세, 수도세, 부가세 등\n내용이 맞는지 확인합니다.' },
+        { title:'PDF 출력', detail:'[🎨 컬러 PDF 출력] 또는 [⬜ 흑백 PDF 출력] 버튼을 클릭합니다.\n인쇄 창이 뜨면 프린터를 선택하고 인쇄합니다.\nPDF로 저장하려면 프린터 대신 "PDF로 저장"을 선택합니다.' },
+        { title:'이메일 발송 (선택)', detail:'[📧 이메일 발송] 버튼을 클릭하면 Gmail이 열리면서 청구서가 첨부됩니다. 받는 사람 주소를 확인하고 발송합니다.' },
+        { title:'여러 업체 순서대로', detail:'한 업체 처리 후 상단에서 다른 업체를 선택하면 됩니다. 매월 3개 업체 모두 발행해 주세요.' },
+      ],
+      tip:'💡 청구서는 매월 검침 후 발행합니다. 발행 전에 검침 입력이 저장되어 있어야 정확한 금액이 계산됩니다.',
+    },
+    {
+      icon:'🚨', title:'긴급 호출', color:'#dc2626',
+      desc:'응급 상황 시 대표님께 즉시 Telegram 알림을 보냅니다',
+      steps:[
+        { title:'전자결재 탭 클릭', detail:'상단 메뉴에서 [전자결재]를 클릭합니다.' },
+        { title:'빨간 패널 확인', detail:'화면 왼쪽(또는 하단)에 빨간 배경의 [전자결재 · 소방안전] 패널이 있습니다.' },
+        { title:'긴급 호출 버튼 클릭', detail:'빨간 패널 안의 [🚨 긴급 호출] 버튼을 클릭합니다.' },
+        { title:'확인 창', detail:'확인 창이 뜨면 상황을 간략히 확인 후 [확인 — 전송] 버튼을 클릭합니다.\n(실수로 누른 경우 [취소] 버튼 클릭)' },
+        { title:'전송 완료', detail:'대표님 휴대폰 Telegram 앱에 즉시 알림이 전송됩니다.\n"긴급 호출 전송 완료" 메시지가 화면에 표시됩니다.' },
+        { title:'미확인 자동 재전송', detail:'5분 후에도 확인이 없으면 자동으로 다시 전송됩니다.' },
+      ],
+      tip:'⚠️ 긴급 호출은 실제 응급 상황에만 사용해 주세요. 설정 탭에서 Telegram 봇 토큰이 설정되어 있어야 작동합니다.',
+    },
+    {
+      icon:'📄', title:'전표 작성', color:'#166534',
+      desc:'입금·출금·대체 전표를 작성하고 PDF로 출력합니다',
+      steps:[
+        { title:'전표 탭 클릭', detail:'상단 메뉴에서 [전표]를 클릭합니다.' },
+        { title:'전표 종류 선택', detail:'새 전표 작성 창에서 종류를 선택합니다.\n▸ 입금전표: 돈이 들어올 때 (임대료 수령 등)\n▸ 출금전표: 돈이 나갈 때 (비용 지불 등)\n▸ 대체전표: 계좌 간 이체, 비용 배분 등' },
+        { title:'날짜 입력', detail:'해당 거래가 발생한 날짜를 입력합니다. 기본값은 오늘 날짜입니다.' },
+        { title:'금액 입력', detail:'거래 금액을 숫자로 입력합니다. 콤마(,)는 자동으로 표시됩니다.' },
+        { title:'계정과목 입력', detail:'거래 내용에 맞는 계정과목을 입력합니다.\n예) 임대료수입, 관리비수입, 전기요금, 소모품비 등' },
+        { title:'거래처 입력 (선택)', detail:'거래 상대방 이름을 입력합니다.\n예) 한국웨지우드마케팅, 한국전력, 서울시 등' },
+        { title:'적요(내용) 입력', detail:'거래 내용을 간략하게 메모합니다.\n예) "2025년 5월 임대료", "화장실 수리비" 등' },
+        { title:'영수증 사진 첨부 (선택)', detail:'[📎 사진 첨부] 버튼으로 영수증이나 세금계산서 사진을 첨부합니다.' },
+        { title:'전표 저장', detail:'모든 입력 후 [💾 전표 저장] 버튼을 클릭합니다.' },
+        { title:'PDF 출력', detail:'목록에서 해당 전표 오른쪽 [출력] 버튼을 클릭하면 A4 PDF가 생성됩니다.' },
+      ],
+      tip:'💡 전표 목록에서 색깔 줄로 종류를 구분합니다: 빨간줄=입금, 파란줄=출금, 검은줄=대체',
+    },
+    {
+      icon:'📅', title:'출퇴근 체크', color:'#0284c7',
+      desc:'출근·퇴근 시간을 기록하고 조회합니다',
+      steps:[
+        { title:'출퇴근 탭 클릭', detail:'상단 메뉴에서 [출퇴근]을 클릭합니다.' },
+        { title:'출근 체크', detail:'출근 시 [✅ 출 근] 버튼을 클릭합니다.\n현재 시각이 자동으로 기록됩니다.' },
+        { title:'퇴근 체크', detail:'퇴근 시 [🏃 퇴 근] 버튼을 클릭합니다.\n근무 시간이 자동으로 계산됩니다.' },
+        { title:'오늘 기록 확인', detail:'오늘의 출근/퇴근 시간과 근무 시간이 화면에 표시됩니다.' },
+        { title:'이전 기록 조회', detail:'[기록 조회] 탭을 클릭하면 날짜별 출퇴근 내역을 확인할 수 있습니다. 월별로 필터링할 수 있습니다.' },
+      ],
+      tip:'💡 출근 버튼은 하루에 한 번만 눌러주세요. 실수로 눌렀을 경우 관리자에게 연락하여 수정 요청하시면 됩니다.',
+    },
+    {
+      icon:'🔥', title:'비상연락망 (소방)', color:'#991b1b',
+      desc:'소방 담당자 연락처를 관리하고 긴급 시 바로 연락합니다',
+      steps:[
+        { title:'전자결재 탭 클릭', detail:'상단 메뉴에서 [전자결재]를 클릭합니다.' },
+        { title:'비상연락망 탭 클릭', detail:'전자결재 화면 안의 [🔥 비상연락망] 탭을 클릭합니다.' },
+        { title:'연락처 확인', detail:'소방서, 경찰서, 가스회사, 건물 담당자 등의 연락처가 표시됩니다.' },
+        { title:'전화 걸기', detail:'전화번호를 클릭하면 스마트폰에서 바로 전화 앱이 열립니다.' },
+        { title:'연락처 수정', detail:'[편집] 버튼을 클릭하면 담당자 이름과 전화번호를 수정할 수 있습니다.\n수정 후 [저장] 클릭.' },
+        { title:'소방 문서 보관', detail:'소방계획서, 점검 기록 등은 [📁 소방·안전 문서 보관함]에 사진으로 업로드하여 보관합니다.' },
+      ],
+      tip:'⚠️ 119 신고는 직접 119에 전화하세요. 비상연락망은 건물 관계자 연락용입니다.',
+    },
+    {
+      icon:'📑', title:'계약서 관리', color:'#7c3aed',
+      desc:'임차인별 임대 계약서를 사진으로 보관합니다',
+      steps:[
+        { title:'임차인 현황 탭 클릭', detail:'상단 메뉴에서 [임차인 현황]을 클릭합니다.' },
+        { title:'업체 카드 찾기', detail:'1층, 2층, 3층 업체 카드가 표시됩니다. 계약서를 추가할 업체의 카드를 찾습니다.' },
+        { title:'계약서 버튼 클릭', detail:'업체 카드 하단의 [📑 계약서] 버튼을 클릭합니다.' },
+        { title:'사진 추가', detail:'[📷 계약서 사진/파일 추가] 버튼을 클릭합니다.\n스마트폰 카메라로 계약서를 촬영하거나, 스캔 파일을 선택합니다.' },
+        { title:'여러 페이지 추가', detail:'계약서가 여러 장인 경우 [추가] 버튼을 반복 클릭하여 페이지별로 추가합니다.' },
+        { title:'사진 크게 보기', detail:'추가된 사진을 클릭하면 크게 볼 수 있습니다. 핀치 줌(두 손가락 벌리기)으로 확대 가능합니다.' },
+      ],
+      tip:'💡 계약서 원본은 안전한 곳에 별도 보관하고, 이 시스템에는 사진 백업으로 활용하세요.',
+    },
+    {
+      icon:'💰', title:'자금 현황', color:'#0369a1',
+      desc:'회사 계좌별 잔액과 자금 흐름을 관리합니다',
+      steps:[
+        { title:'자금현황 탭 클릭', detail:'상단 메뉴에서 [자금현황]을 클릭합니다.' },
+        { title:'계좌별 잔액 확인', detail:'MMF, 보통예금 등 각 계좌의 잔액이 표시됩니다.' },
+        { title:'잔액 수정', detail:'각 계좌 옆 금액을 클릭하여 현재 실제 잔액으로 수정합니다.\n통장을 확인하고 맞춰서 입력해 주세요.' },
+        { title:'합계 확인', detail:'하단에 전체 자산 합계가 자동으로 표시됩니다.' },
+      ],
+      tip:'💡 월 마감 때 통장 잔액을 확인하여 업데이트해 주세요.',
+    },
+    {
+      icon:'📢', title:'업무 보고', color:'#0891b2',
+      desc:'일일 업무 내용을 기록하고 공유합니다',
+      steps:[
+        { title:'업무보고 탭 클릭', detail:'상단 메뉴에서 [업무보고]를 클릭합니다.' },
+        { title:'새 보고 작성', detail:'[✏️ 새 업무보고 작성] 버튼을 클릭합니다.' },
+        { title:'날짜 및 내용 입력', detail:'날짜를 선택하고 오늘 한 업무 내용을 입력합니다.\n예) "1층 웨지우드 관리비 청구서 발송 완료", "화장실 형광등 교체" 등' },
+        { title:'저장', detail:'[저장] 버튼을 클릭합니다. 저장된 보고는 목록에서 날짜별로 확인 가능합니다.' },
+      ],
+      tip:'💡 매일 간단하게라도 업무 기록을 남겨두시면 나중에 참고하기 좋습니다.',
+    },
+  ];
+
+  const handlePrint=()=>{
+    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>태림전자공업 사용 설명서</title><style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:11.5px;color:#111;background:#fff;}
+.page{max-width:780px;margin:0 auto;padding:16px;}
+.hdr{background:#312e81;color:#fff;padding:16px 22px;border-radius:8px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;}
+.hdr-title{font-size:20px;font-weight:900;letter-spacing:2px;}
+.hdr-sub{font-size:10.5px;opacity:0.65;margin-top:3px;}
+.section{margin-bottom:18px;border:1.5px solid #ddd;border-radius:10px;overflow:hidden;break-inside:avoid;}
+.sec-hdr{padding:10px 16px;display:flex;align-items:center;gap:10px;}
+.sec-icon{font-size:20px;}
+.sec-title{font-size:14px;font-weight:800;color:#fff;}
+.sec-desc{font-size:10px;color:rgba(255,255,255,0.72);margin-top:2px;}
+.steps{padding:12px 16px;background:#fafafa;}
+.step{display:flex;gap:9px;margin-bottom:9px;align-items:flex-start;}
+.step-no{background:#312e81;color:#fff;border-radius:50%;width:19px;height:19px;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.step-body{}
+.step-title{font-size:11.5px;font-weight:700;color:#111;margin-bottom:2px;}
+.step-detail{font-size:10.5px;line-height:1.65;color:#444;white-space:pre-line;}
+.tip{margin:8px 0 0;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:7px 10px;font-size:10.5px;color:#92400e;line-height:1.6;}
+.footer{margin-top:16px;text-align:center;font-size:10px;color:#999;border-top:1px solid #eee;padding-top:8px;}
+@media print{@page{size:A4;margin:10mm;}body{font-size:10.5px;}.section{break-inside:avoid;}}
+</style></head><body>
+<div class="page">
+<div class="hdr">
+  <div>
+    <div class="hdr-title">태림전자공업㈜ 시스템 사용 설명서</div>
+    <div class="hdr-sub">TAE LIM ELECTRONICS CO., LTD. · ${CO_ADDR}</div>
+  </div>
+  <div style="text-align:right;font-size:10px;opacity:0.7;">출력일: ${new Date().toLocaleDateString('ko-KR')}</div>
+</div>
+${sections.map(s=>`
+<div class="section">
+  <div class="sec-hdr" style="background:${s.color};">
+    <span class="sec-icon">${s.icon}</span>
+    <div>
+      <div class="sec-title">${s.title}</div>
+      <div class="sec-desc">${s.desc}</div>
+    </div>
+  </div>
+  <div class="steps">
+    ${s.steps.map((st,i)=>`<div class="step">
+      <div class="step-no">${i+1}</div>
+      <div class="step-body">
+        <div class="step-title">${st.title}</div>
+        <div class="step-detail">${st.detail.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+      </div>
+    </div>`).join('')}
+    ${s.tip?`<div class="tip">${s.tip}</div>`:''}
+  </div>
+</div>`).join('')}
+<div class="footer">
+  <div style="font-weight:700;margin-bottom:3px;">문의: ${CO_TEL} (장혁) · Fax: ${CO_FAX}</div>
+  <div>${CO_ADDR}</div>
+  <div style="margin-top:5px;">© ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved.</div>
+</div>
+</div>
+<script>window.onload=()=>window.print();</script>
+</body></html>`;
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const w=window.open(url,'_blank');
+    if(!w){alert('팝업이 차단됐습니다.'); return;}
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18, flexWrap:'wrap', gap:8 }}>
+        <div>
+          <div style={{ fontSize:17, fontWeight:800, color:C.navyDark }}>시스템 사용 설명서</div>
+          <div style={{ fontSize:12, color:C.textSub, marginTop:3 }}>태림전자공업㈜ 통합 관리 시스템 · 기능별 상세 사용법</div>
+        </div>
+        <button onClick={handlePrint} style={{ ...btn('primary'), gap:6 }}>🖨️ A4 인쇄 / PDF 저장</button>
+      </div>
+
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+        {sections.map((s,i)=>(
+          <button key={i} onClick={()=>setActiveSection(activeSection===i?null:i)} style={{ padding:'6px 14px', borderRadius:20, border:`2px solid ${activeSection===i?s.color:'#e5e7eb'}`, background:activeSection===i?s.color:'#fff', color:activeSection===i?'#fff':C.textMid, fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all 0.15s', display:'flex', alignItems:'center', gap:5 }}>
+            <span>{s.icon}</span>{s.title}
+          </button>
+        ))}
+        {activeSection!==null && <button onClick={()=>setActiveSection(null)} style={{ padding:'6px 12px', borderRadius:20, border:'2px solid #e5e7eb', background:'#f9fafb', color:C.textSub, fontSize:12, cursor:'pointer' }}>✕ 전체 보기</button>}
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))', gap:14 }}>
+        {sections.map((s,i)=>{
+          if(activeSection!==null && activeSection!==i) return null;
+          return (
+            <div key={i} style={{ background:C.white, borderRadius:14, overflow:'hidden', boxShadow:sh.card, border:`1px solid ${C.border}` }}>
+              <div style={{ background:s.color, padding:'13px 16px', display:'flex', alignItems:'center', gap:11 }}>
+                <span style={{ fontSize:24 }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontSize:14.5, fontWeight:800, color:'#fff' }}>{s.title}</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.72)', marginTop:2 }}>{s.desc}</div>
+                </div>
+              </div>
+              <div style={{ padding:'14px 16px' }}>
+                {s.steps.map((st,j)=>(
+                  <div key={j} style={{ display:'flex', gap:10, marginBottom:12, alignItems:'flex-start' }}>
+                    <span style={{ background:s.color, color:'#fff', borderRadius:'50%', width:20, height:20, fontSize:10.5, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>{j+1}</span>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:C.textDark, marginBottom:3 }}>{st.title}</div>
+                      <div style={{ fontSize:12, color:C.textMid, lineHeight:1.7, whiteSpace:'pre-line' }}>{st.detail}</div>
+                    </div>
+                  </div>
+                ))}
+                {s.tip && (
+                  <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'9px 12px', fontSize:12, color:'#92400e', lineHeight:1.7, marginTop:4 }}>
+                    {s.tip}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop:18, background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'15px 18px', fontSize:13, color:C.navyDark, lineHeight:2 }}>
+        <div style={{ fontWeight:800, marginBottom:6, fontSize:13.5 }}>📌 꼭 알아두세요</div>
+        <div>· <b>비밀번호</b> — 대표님: <b>admin2024</b> / 직원: <b>taelim2024</b></div>
+        <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으니 주의!</div>
+        <div>· <b>Telegram 알림</b> — 설정 탭에서 봇 토큰을 설정해야 긴급호출 알림이 작동합니다.</div>
+        <div>· <b>문의</b> — 시스템 문제 시 장혁 ({CO_TEL}) 에게 연락 주세요.</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page Footer ───────────────────────────────────────────────
 function PageFooter() {
   return (
@@ -4016,6 +4292,7 @@ export default function App() {
         {page==='voucher'   && <VoucherPage  role={role} />}
         {page==='attendance'&& <AttendancePage role={role} />}
         {page==='report'    && <WorkReportPage />}
+        {page==='manual'    && <ManualPage />}
         {page==='settings'  && <SettingsPage savedPassword={savedPw} setSavedPassword={handleSetPw} adminPw={adminPw} setAdminPw={handleSetAdminPw} masterPw={masterPw} setMasterPw={(p)=>{ setMasterPw(p); store.set('tl_master_pw',p); }} tenants={tenants} setTenants={handleSetTenants} reading={reading} role={role} />}
       </main>
       <PageFooter />
