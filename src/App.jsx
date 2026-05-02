@@ -3827,13 +3827,15 @@ function VoucherPage({ role }) {
                   {displayV.length===0 && <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>전표가 없습니다.</td></tr>}
                   {displayV.map((v,i)=>{
                     const tb=typeBadge[v.type]||typeBadge.transfer;
+                    const lineColor=v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111';
+                    const lineWidth=v.type==='transfer'?4:3;
                     return (
-                      <tr key={v.id} style={{ background:i%2===0?C.white:C.tAlt }}>
+                      <tr key={v.id} style={{ background:i%2===0?C.white:C.tAlt, borderLeft:`${lineWidth}px solid ${lineColor}` }}>
                         <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>{v.vno}</td>
                         <td style={TD('left',{fontSize:12})}>{v.date}</td>
-                        <td style={TD('left')}><span style={{ background:tb.bg, color:tb.c, border:`1px solid ${tb.b}`, borderRadius:6, padding:'2px 7px', fontSize:11 }}>{typeLabel[v.type]}</span></td>
+                        <td style={TD('left')}><span style={{ background:tb.bg, color:tb.c, border:`1px solid ${tb.b}`, borderRadius:6, padding:'2px 7px', fontSize:11, fontWeight:700 }}>{typeLabel[v.type]}</span></td>
                         <td style={TD('left',{fontSize:12})}>{v.type==='transfer'?`${v.debitAcct} → ${v.creditAcct}`:(v.account+(v.payee?` (${v.payee})`:'')||(v.note||'—'))}</td>
-                        <td style={TD('right',{fontWeight:700,color:v.type==='income'?C.blue:v.type==='expense'?C.red:C.text})}>{fmt(v.amount)}원</td>
+                        <td style={TD('right',{fontWeight:800,color:lineColor,fontSize:13})}>{fmt(v.amount)}원</td>
                         <td style={TD('center')}>{v.fileUrl&&<span style={{ cursor:'pointer', fontSize:16 }} onClick={()=>setImgModal(v.fileUrl)}>📎</span>}</td>
                         <td style={TD('center')}>
                           <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
