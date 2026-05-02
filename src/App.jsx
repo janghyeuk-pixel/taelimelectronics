@@ -3929,20 +3929,13 @@ export default function App() {
 
     // ── Firebase 로그인 ──
     try {
-      const cred=await signInWithEmailAndPassword(auth,email,password);
-      // localStorage에서 프로필 먼저 확인
+      const loginPromise=signInWithEmailAndPassword(auth,email,password);
+      const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),8000));
+      const cred=await Promise.race([loginPromise,timeoutPromise]);
+      // localStorage에서만 프로필 확인 (Firestore 호출 없음)
       const users=store.get('tl_fb_users')||{};
-      let profile=users[cred.user.uid];
-      // Firestore에서도 시도 (타임아웃 3초)
-      if(!profile){
-        try {
-          const p=getDoc(doc(db,'users',cred.user.uid));
-          const t=new Promise((_,r)=>setTimeout(()=>r('t'),3000));
-          const snap=await Promise.race([p,t]);
-          if(snap!=='t'&&snap.exists()) profile=snap.data();
-        } catch(_){}
-      }
-      if(!profile){ await signOut(auth); return {ok:false,error:'프로필 없음. 회원가입을 먼저 해주세요.'}; }
+      const profile=users[cred.user.uid];
+      if(!profile){ await signOut(auth); return {ok:false,error:'프로필이 없습니다. 회원가입을 먼저 해주세요.'}; }
       setRole(profile.role||'staff');
       setUserProfile(profile);
       store.set('tl_user_name',profile.name||email);
@@ -3954,9 +3947,10 @@ export default function App() {
         'auth/wrong-password':'비밀번호가 올바르지 않습니다.',
         'auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않습니다.',
         'auth/too-many-requests':'잠시 후 다시 시도해주세요.',
-        'auth/network-request-failed':'네트워크 연결을 확인해주세요.',
+        'auth/network-request-failed':'네트워크 오류. 잠시 후 다시 시도해주세요.',
+        'timeout':'연결 시간 초과. 다시 시도해주세요.',
       };
-      return {ok:false, error:msg[e.code]||e.message};
+      return {ok:false, error:msg[e.code]||'로그인 실패. 다시 시도해주세요.'};
     }
   };
   const handleSetPw=(pw)=>{ setSavedPw(pw); store.set('tl_pw',pw); };
