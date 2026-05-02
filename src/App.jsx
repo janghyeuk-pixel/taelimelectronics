@@ -356,37 +356,17 @@ function RegisterPage({ onBack, onDone }) {
     try {
       // Firebase Auth 계정 생성
       const cred=await createUserWithEmailAndPassword(auth,form.email.trim(),form.password);
-
-      // Firestore에 프로필 저장 (타임아웃 5초)
-      let isFirst=false;
-      try {
-        const fsPromise=getDocs(collection(db,'users'));
-        const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),5000));
-        const snap=await Promise.race([fsPromise,timeout]);
-        isFirst=snap.empty;
-        const empNo=`EMP-${String(snap.size+1).padStart(3,'0')}`;
-        const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
-          role:isFirst?'master':'pending', approved:isFirst, empNo,
-          createdAt:new Date().toISOString() };
-        await setDoc(doc(db,'users',cred.user.uid),profile);
-      } catch(fsErr){
-        // Firestore 실패해도 Auth 계정은 생성됨 — master로 처리
-        isFirst=true;
-        try {
-          await setDoc(doc(db,'users',cred.user.uid),{
-            name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
-            role:'master', approved:true, empNo:'EMP-001', createdAt:new Date().toISOString()
-          });
-        } catch(_){}
-      }
-
-      if(!isFirst){ await signOut(auth); }
-      // Telegram 알림
-      if(!isFirst){
-        const tgToken=store.get('tl_telegram_token');
-        const tgAdmin=store.get('tl_telegram_admin');
-        if(tgToken&&tgAdmin) await sendTelegram(tgToken,tgAdmin,`👤 <b>새 회원가입 요청</b>\n\n이름: ${form.name}\n이메일: ${form.email}\n\n관리자 설정에서 승인해주세요.`);
-      }
+      // localStorage에 프로필 저장 (Firestore 없이도 작동)
+      const users=store.get('tl_fb_users')||{};
+      const isFirst=Object.keys(users).length===0;
+      const empNo=`EMP-${String(Object.keys(users).length+1).padStart(3,'0')}`;
+      const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
+        role:isFirst?'master':'staff', approved:true, empNo,
+        createdAt:new Date().toISOString() };
+      users[cred.user.uid]=profile;
+      store.set('tl_fb_users',users);
+      // Firestore에도 저장 시도 (실패해도 무관)
+      try { await setDoc(doc(db,'users',cred.user.uid),profile); } catch(_){}
       setDone(true);
       if(isFirst) onDone?.();
     } catch(e){
@@ -3950,10 +3930,19 @@ export default function App() {
     // ── Firebase 로그인 ──
     try {
       const cred=await signInWithEmailAndPassword(auth,email,password);
-      const snap=await getDoc(doc(db,'users',cred.user.uid));
-      if(!snap.exists()){ await signOut(auth); return {ok:false,error:'사용자 정보가 없습니다. 회원가입을 먼저 해주세요.'}; }
-      const profile=snap.data();
-      if(!profile.approved){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다. 대표님께 문의하세요.'}; }
+      // localStorage에서 프로필 먼저 확인
+      const users=store.get('tl_fb_users')||{};
+      let profile=users[cred.user.uid];
+      // Firestore에서도 시도 (타임아웃 3초)
+      if(!profile){
+        try {
+          const p=getDoc(doc(db,'users',cred.user.uid));
+          const t=new Promise((_,r)=>setTimeout(()=>r('t'),3000));
+          const snap=await Promise.race([p,t]);
+          if(snap!=='t'&&snap.exists()) profile=snap.data();
+        } catch(_){}
+      }
+      if(!profile){ await signOut(auth); return {ok:false,error:'프로필 없음. 회원가입을 먼저 해주세요.'}; }
       setRole(profile.role||'staff');
       setUserProfile(profile);
       store.set('tl_user_name',profile.name||email);
