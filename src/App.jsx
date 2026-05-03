@@ -2216,7 +2216,10 @@ function FinancePage() {
         </div>
 
         <div style={{ marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
-          <button onClick={addRow} style={btn('navyGhost')}>+ 행 추가</button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={addRow} style={btn('navyGhost')}>+ 행 추가</button>
+            <button onClick={()=>{ if(window.confirm(`${monthLabel} 입출금 내역을 전부 삭제할까요?`)) setYmData({...ymData,rows:[],opening:0}); }} style={{...btn('secondary'),color:C.red,borderColor:C.red+'44'}}>🗑 이 달 초기화</button>
+          </div>
           {computedRows.length>0 && (
             <div style={{ fontSize:13, color:C.textSub, display:'flex', gap:16 }}>
               <span>입금 합계 <span style={{ fontWeight:700, color:C.blue }}>{fmt((ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0))}원</span></span>
@@ -2226,8 +2229,90 @@ function FinancePage() {
           )}
         </div>
       </div>
+
+      {/* 인쇄 버튼 */}
+      <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
+        <button onClick={()=>handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,computedRows)} style={{...btn('primary'),gap:6}}>🖨️ 자금현황 인쇄</button>
+      </div>
     </div>
   );
+}
+
+function handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,computedRows){
+  const fmt2=(n)=>Number(n||0).toLocaleString('ko-KR');
+  const totalIncome=(ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0);
+  const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
+  const lastBalance=computedRows.length>0?computedRows.at(-1).balance:ymData.opening||0;
+
+  const acctRows=acctKeys.map(k=>{
+    const a=accounts[k];
+    const diff=(a.curr||0)-(a.prev||0);
+    return `<tr>
+      <td>${a.label}</td>
+      <td class="num">${fmt2(a.prev)}</td>
+      <td class="num"><strong>${fmt2(a.curr)}</strong></td>
+      <td class="num" style="color:${diff>=0?'#1d4ed8':'#dc2626'}">${diff>=0?'+':''}${fmt2(diff)}</td>
+    </tr>`;
+  }).join('');
+
+  const txnRows=computedRows.map((r,i)=>`<tr>
+    <td>${r.no||String(i+1).padStart(3,'0')}</td>
+    <td>${r.date||''}</td>
+    <td>${r.desc||''}</td>
+    <td class="num" style="color:#1d4ed8">${r.income?fmt2(r.income):''}</td>
+    <td class="num" style="color:#dc2626">${r.expense?fmt2(r.expense):''}</td>
+    <td class="num"><strong>${fmt2(r.balance)}</strong></td>
+  </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:11px;color:#111;padding:20px;}
+h1{font-size:16px;font-weight:800;color:#1e3a8a;margin-bottom:4px;}
+h2{font-size:12px;font-weight:700;color:#1e3a8a;margin:16px 0 6px;padding-bottom:4px;border-bottom:2px solid #1e3a8a;}
+.subtitle{font-size:11px;color:#666;margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+th{background:#1e3a8a;color:#fff;padding:6px 8px;text-align:left;font-size:10.5px;}
+th.num,td.num{text-align:right;}
+td{padding:5px 8px;border-bottom:1px solid #e5e7eb;}
+tr:nth-child(even){background:#f8fafc;}
+.total-row td{font-weight:800;background:#dbeafe;border-top:2px solid #1e3a8a;}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.card{border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;}
+.card-label{font-size:9.5px;color:#666;margin-bottom:2px;}
+.card-value{font-size:13px;font-weight:800;}
+@media print{body{padding:10px;}@page{margin:10mm;}}
+</style></head><body>
+<h1>태 림 전 자 공 업 주 식 회 사</h1>
+<div class="subtitle">${monthLabel} 자금 현황표</div>
+
+<div class="summary">
+  <div class="card"><div class="card-label">총 잔고 (현재)</div><div class="card-value" style="color:#1e3a8a">${fmt2(totalCurr)}원</div></div>
+  <div class="card"><div class="card-label">입금 합계</div><div class="card-value" style="color:#1d4ed8">${fmt2(totalIncome)}원</div></div>
+  <div class="card"><div class="card-label">출금 합계</div><div class="card-value" style="color:#dc2626">${fmt2(totalExpense)}원</div></div>
+  <div class="card"><div class="card-label">최종 잔액</div><div class="card-value" style="color:#15803d">${fmt2(lastBalance)}원</div></div>
+</div>
+
+<h2>예금 · 잔고 현황</h2>
+<table>
+  <thead><tr><th>계정</th><th class="num">전월 잔고</th><th class="num">현재 잔고</th><th class="num">증감</th></tr></thead>
+  <tbody>${acctRows}
+    <tr class="total-row"><td>합 계</td><td class="num">${fmt2(totalPrev)}</td><td class="num">${fmt2(totalCurr)}</td><td class="num">${(totalCurr-totalPrev)>=0?'+':''}${fmt2(totalCurr-totalPrev)}</td></tr>
+  </tbody>
+</table>
+
+<h2>입출금 내역</h2>
+<table>
+  <thead><tr><th>No.</th><th>날짜</th><th>적요</th><th class="num">입금</th><th class="num">출금</th><th class="num">잔액</th></tr></thead>
+  <tbody>${txnRows||'<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">내역 없음</td></tr>'}
+  </tbody>
+</table>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`;
+
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(html);
+  w.document.close();
 }
 
 // ─── Notice Page ──────────────────────────────────────────────
