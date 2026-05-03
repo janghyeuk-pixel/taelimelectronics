@@ -1,5 +1,5 @@
 import { useState, Fragment, useEffect, useRef } from "react";
-import * as XLSX from 'xlsx';
+/* global XLSX */
 import { auth, db } from './firebase';
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
