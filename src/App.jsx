@@ -3890,10 +3890,39 @@ function VoucherPage({ role }) {
     setTab('list');
   };
 
-  const deleteV=(id)=>{ if(window.confirm('삭제하시겠습니까?')) saveV(vouchers.filter(v=>v.id!==id)); };
+  const APPROVER_SLOTS=[
+    {key:'이사',   label:'이  사',   roleReq:'staff',  name:'박장혁 이사'},
+    {key:'대표',   label:'대  표',   roleReq:'admin',  name:'대표이사'},
+    {key:'부사장', label:'부 사 장', roleReq:'master', name:'부사장'},
+  ];
+  const mySlot=APPROVER_SLOTS.find(s=>s.roleReq===role);
+  const isLocked=(v)=>v.approvals&&Object.values(v.approvals).some(a=>a);
+  const fmtAt=(iso)=>{ if(!iso) return ''; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+
+  const handleApprove=(id)=>{
+    if(!mySlot){ alert('결재 권한이 없습니다.'); return; }
+    const v=vouchers.find(vv=>vv.id===id); if(!v) return;
+    if(v.approvals?.[mySlot.key]){ alert('이미 결재하셨습니다.'); return; }
+    if(!window.confirm(`[${mySlot.name}] 결재하시겠습니까?\n\n결재 후에는 전표 수정 및 삭제가 불가합니다.`)) return;
+    const next=vouchers.map(vv=>vv.id===id?{...vv,approvals:{...(vv.approvals||{}),[mySlot.key]:{name:mySlot.name,at:new Date().toISOString()}},status:'approved'}:vv);
+    saveV(next); msg(`✓ ${mySlot.name} 결재 완료`);
+  };
+
+  const deleteV=(id)=>{
+    const v=vouchers.find(vv=>vv.id===id);
+    if(isLocked(v)){ alert('결재된 전표는 삭제할 수 없습니다.'); return; }
+    if(window.confirm('삭제하시겠습니까?')) saveV(vouchers.filter(vv=>vv.id!==id));
+  };
 
   const handlePrint=(v)=>{
     const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
+    const sigCells=APPROVER_SLOTS.map(s=>{
+      const ap=v.approvals?.[s.key];
+      return `<div class="sig-cell">
+        <div class="sig-label">${s.label}</div>
+        ${ap?`<div class="sig-name">${ap.name}</div><div class="sig-date">${fmtAt(ap.at)}</div>`:'<div style="min-height:32px;"></div>'}
+      </div>`;
+    }).join('');
     const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>
 *{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:12px;color:#111;}
 .page{max-width:650px;margin:16px auto;}
@@ -3903,9 +3932,11 @@ function VoucherPage({ role }) {
 .field{flex:1;}.field-label{font-size:10px;color:#555;margin-bottom:2px;}.field-val{font-size:13px;font-weight:600;border-bottom:1px solid #aaa;padding-bottom:3px;}
 .amount{font-size:22px;font-weight:900;text-align:right;border:2px solid #000;padding:10px 16px;margin:12px 0;letter-spacing:1px;}
 .note{border:1px solid #aaa;padding:10px;min-height:50px;margin-bottom:10px;font-size:13px;}
-.sig{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #000;margin-top:14px;}
-.sig-cell{border-right:1px solid #000;padding:6px 10px;min-height:44px;}.sig-cell:last-child{border-right:none;}
-.sig-label{font-size:10px;color:#555;font-weight:700;}
+.sig{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1px solid #000;margin-top:14px;}
+.sig-cell{border-right:1px solid #000;padding:7px 10px;min-height:54px;}.sig-cell:last-child{border-right:none;}
+.sig-label{font-size:10px;color:#555;font-weight:700;margin-bottom:4px;}
+.sig-name{font-size:11px;font-weight:700;color:#111;}
+.sig-date{font-size:9px;color:#666;margin-top:2px;}
 .footer{font-size:10px;color:#999;text-align:center;margin-top:8px;border-top:1px solid #eee;padding-top:6px;}
 @media print{@page{margin:12mm;}}
 </style></head><body>
@@ -3935,11 +3966,9 @@ function VoucherPage({ role }) {
     <div class="note">${v.note||'(없음)'}</div>
     ${v.payee?`<div style="font-size:11px;color:#555;margin-bottom:6px;"><b>${v.type==='income'?'입금처':'지출처'}:</b> ${v.payee}</div>`:''}
     ${v.fileName?`<div style="font-size:11px;color:#555;"><b>첨부:</b> ${v.fileName}</div>`:''}
-
     <div class="sig">
-      <div class="sig-cell"><div class="sig-label">작 성</div></div>
-      <div class="sig-cell"><div class="sig-label">검 토</div></div>
-      <div class="sig-cell"><div class="sig-label">승 인</div></div>
+      <div class="sig-cell"><div class="sig-label">작  성</div><div class="sig-name">${v.author||''}</div><div class="sig-date">${v.createdAt?fmtAt(v.createdAt):''}</div></div>
+      ${sigCells}
     </div>
   </div>
   <div class="footer">태림전자공업㈜ · ${CO_ADDR} · Tel: ${CO_TEL} · © ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.</div>
@@ -4061,26 +4090,46 @@ function VoucherPage({ role }) {
           </div>
           <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
             <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:640 }}>
-                <thead><tr>{[['전표번호','left',90],['날짜','left',100],['구분','left',80],['계정','left'],['금액','right',130],['첨부','center',44],['','center',80]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:700 }}>
+                <thead><tr>{[['전표번호','left',90],['날짜','left',90],['구분','left',76],['계정','left'],['금액','right',120],['결재','center',130],['','center',90]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
                 <tbody>
                   {displayV.length===0 && <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>전표가 없습니다.</td></tr>}
                   {displayV.map((v,i)=>{
                     const tb=typeBadge[v.type]||typeBadge.transfer;
                     const lineColor=v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111';
                     const lineWidth=v.type==='transfer'?4:3;
+                    const locked=isLocked(v);
+                    const allApproved=APPROVER_SLOTS.every(s=>v.approvals?.[s.key]);
                     return (
                       <tr key={v.id} style={{ background:i%2===0?C.white:C.tAlt, borderLeft:`${lineWidth}px solid ${lineColor}` }}>
-                        <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>{v.vno}</td>
+                        <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>
+                          {locked && <span style={{fontSize:10,background:'#dcfce7',color:'#15803d',border:'1px solid #bbf7d0',borderRadius:4,padding:'1px 4px',marginRight:4}}>결재</span>}
+                          {v.vno}
+                        </td>
                         <td style={TD('left',{fontSize:12})}>{v.date}</td>
                         <td style={TD('left')}><span style={{ background:tb.bg, color:tb.c, border:`1px solid ${tb.b}`, borderRadius:6, padding:'2px 7px', fontSize:11, fontWeight:700 }}>{typeLabel[v.type]}</span></td>
                         <td style={TD('left',{fontSize:12})}>{v.type==='transfer'?`${v.debitAcct} → ${v.creditAcct}`:(v.account+(v.payee?` (${v.payee})`:'')||(v.note||'—'))}</td>
                         <td style={TD('right',{fontWeight:800,color:lineColor,fontSize:13})}>{fmt(v.amount)}원</td>
-                        <td style={TD('center')}>{v.fileUrl&&<span style={{ cursor:'pointer', fontSize:16 }} onClick={()=>setImgModal(v.fileUrl)}>📎</span>}</td>
+                        <td style={TD('center')}>
+                          <div style={{display:'flex',gap:3,justifyContent:'center'}}>
+                            {APPROVER_SLOTS.map(s=>{
+                              const ap=v.approvals?.[s.key];
+                              const isMe=mySlot?.key===s.key;
+                              return ap ? (
+                                <div key={s.key} title={`${ap.name}\n${fmtAt(ap.at)}`} style={{width:28,height:24,borderRadius:5,background:'#dcfce7',border:'1px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#15803d',cursor:'default'}}>✓{s.key[0]}</div>
+                              ) : isMe ? (
+                                <button key={s.key} onClick={()=>handleApprove(v.id)} style={{width:28,height:24,borderRadius:5,background:'#fef9c3',border:'1px solid #fde047',fontSize:9,fontWeight:700,color:'#854d0e',cursor:'pointer'}}>{s.key[0]}결</button>
+                              ) : (
+                                <div key={s.key} style={{width:28,height:24,borderRadius:5,background:'#f3f4f6',border:'1px solid #e5e7eb',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#9ca3af'}}>-</div>
+                              );
+                            })}
+                          </div>
+                        </td>
                         <td style={TD('center')}>
                           <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
                             <button onClick={()=>handlePrint(v)} style={{ ...btn('navyGhost'), height:26, padding:'0 8px', fontSize:11 }}>출력</button>
-                            <button onClick={()=>deleteV(v.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:16, lineHeight:1 }}>×</button>
+                            {v.fileUrl && <span style={{ cursor:'pointer', fontSize:16, lineHeight:'26px' }} onClick={()=>setImgModal(v.fileUrl)}>📎</span>}
+                            {!locked && <button onClick={()=>deleteV(v.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:16, lineHeight:1 }}>×</button>}
                           </div>
                         </td>
                       </tr>
