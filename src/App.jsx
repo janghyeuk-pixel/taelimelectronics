@@ -1988,15 +1988,13 @@ function FinancePage() {
           })).filter(r=>r.income||r.expense);
           if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
         } else if(acctKey==='mmf'){
-          // 기업은행 MMF: 거래일시 | 매입금액 | col | col | 거래유형 | 환매금액 | ... | 잔액(col12)
-          parsed=dataRows.map(row=>({
-            date:String(row[0]).substring(0,10),
-            desc:`[MMF] ${String(row[4]||'거래')}`.trim(),
-            income:parseNum(row[1])||0,
-            expense:parseNum(row[5])||0,
-            balance:parseNum(row[12])||0,
-          })).filter(r=>r.income||r.expense);
-          if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
+          // MMF: 잔액만 업데이트 (거래내역 추가 안 함 - 이중계산 방지)
+          // 기업은행 MMF 파일: col[12] = 잔액
+          const lastRow=dataRows[dataRows.length-1];
+          finalBalance=parseNum(lastRow[12])||parseNum(lastRow[6])||parseNum(lastRow[7])||0;
+          if(!finalBalance){ alert('MMF 잔액을 찾을 수 없습니다.\n파일을 확인해 주세요.'); return; }
+          setImportPreview({acctKey,rows:[],finalBalance,mmfOnly:true});
+          return;
         }
 
         if(parsed.length===0){ alert('파싱된 거래 내역이 없습니다.'); return; }
@@ -2030,6 +2028,7 @@ function FinancePage() {
   const IMPORT_BTNS=[
     {key:'acct018',label:'보통018 가져오기',color:'#1d4ed8'},
     {key:'acct032',label:'보통032 가져오기',color:'#1d4ed8'},
+    {key:'mmf',    label:'MMF 잔액 업데이트',color:'#047857'},
   ];
 
   return (
@@ -2055,40 +2054,45 @@ function FinancePage() {
       {/* 가져오기 미리보기 모달 */}
       {importPreview&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <div style={{background:C.white,borderRadius:16,padding:24,width:'100%',maxWidth:720,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+          <div style={{background:C.white,borderRadius:16,padding:24,width:'100%',maxWidth:importPreview.mmfOnly?440:720,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-              <div>
-                <span style={{fontSize:15,fontWeight:800,color:C.navyDark}}>가져오기 미리보기</span>
-                <span style={{marginLeft:10,fontSize:12,color:C.textSub}}>{accounts[importPreview.acctKey]?.label} · {importPreview.rows.length}건</span>
-              </div>
+              <span style={{fontSize:15,fontWeight:800,color:C.navyDark}}>{importPreview.mmfOnly?'MMF 잔액 업데이트':'가져오기 미리보기'}</span>
               <button onClick={()=>setImportPreview(null)} style={{background:'transparent',border:'none',fontSize:22,cursor:'pointer',color:C.textHint}}>×</button>
             </div>
-            <div style={{overflowY:'auto',flex:1,marginBottom:16}}>
-              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
-                <thead><tr style={{background:C.navyBg}}>
-                  {['날짜','적요','입금','출금','잔액'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:h==='날짜'||h==='적요'?'left':'right',fontWeight:700,color:C.navy,borderBottom:`1px solid ${C.tBorder}`}}>{h}</th>)}
-                </tr></thead>
-                <tbody>
-                  {importPreview.rows.map((r,i)=>(
-                    <tr key={i} style={{background:i%2===0?C.white:C.tAlt}}>
-                      <td style={{padding:'7px 10px',color:C.textSub,whiteSpace:'nowrap'}}>{r.date}</td>
-                      <td style={{padding:'7px 10px',color:C.text}}>{r.desc}</td>
-                      <td style={{padding:'7px 10px',textAlign:'right',color:r.income?C.blue:C.textHint,fontWeight:r.income?600:400}}>{r.income?fmt(r.income)+' 원':'-'}</td>
-                      <td style={{padding:'7px 10px',textAlign:'right',color:r.expense?C.red:C.textHint,fontWeight:r.expense?600:400}}>{r.expense?fmt(r.expense)+' 원':'-'}</td>
-                      <td style={{padding:'7px 10px',textAlign:'right',color:C.navyDark,fontWeight:600}}>{r.balance?fmt(r.balance)+' 원':'-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {importPreview.finalBalance>0&&(
+            {importPreview.mmfOnly?(
+              <div style={{textAlign:'center',padding:'20px 0'}}>
+                <div style={{fontSize:13,color:C.textSub,marginBottom:12}}>파일에서 읽은 MMF 최종 잔액</div>
+                <div style={{fontSize:28,fontWeight:900,color:'#047857',marginBottom:20}}>{fmt(importPreview.finalBalance)}원</div>
+                <div style={{fontSize:12,color:C.textHint,marginBottom:20}}>거래내역은 추가되지 않고 MMF 잔액만 업데이트됩니다.</div>
+              </div>
+            ):(
+              <div style={{overflowY:'auto',flex:1,marginBottom:16}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr style={{background:C.navyBg}}>
+                    {['날짜','적요','입금','출금','잔액'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:h==='날짜'||h==='적요'?'left':'right',fontWeight:700,color:C.navy,borderBottom:`1px solid ${C.tBorder}`}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {importPreview.rows.map((r,i)=>(
+                      <tr key={i} style={{background:i%2===0?C.white:C.tAlt}}>
+                        <td style={{padding:'7px 10px',color:C.textSub,whiteSpace:'nowrap'}}>{r.date}</td>
+                        <td style={{padding:'7px 10px',color:C.text}}>{r.desc}</td>
+                        <td style={{padding:'7px 10px',textAlign:'right',color:r.income?C.blue:C.textHint,fontWeight:r.income?600:400}}>{r.income?fmt(r.income)+' 원':'-'}</td>
+                        <td style={{padding:'7px 10px',textAlign:'right',color:r.expense?C.red:C.textHint,fontWeight:r.expense?600:400}}>{r.expense?fmt(r.expense)+' 원':'-'}</td>
+                        <td style={{padding:'7px 10px',textAlign:'right',color:C.navyDark,fontWeight:600}}>{r.balance?fmt(r.balance)+' 원':'-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {!importPreview.mmfOnly&&importPreview.finalBalance>0&&(
               <div style={{padding:'10px 14px',background:C.greenBg,borderRadius:10,marginBottom:14,fontSize:13,color:C.green,fontWeight:600}}>
                 ✓ 계좌 잔액이 <strong>{fmt(importPreview.finalBalance)}원</strong> 으로 자동 업데이트됩니다.
               </div>
             )}
             <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
               <button onClick={()=>setImportPreview(null)} style={btn('secondary')}>취소</button>
-              <button onClick={confirmImport} style={btn('primary')}>가져오기 확인</button>
+              <button onClick={confirmImport} style={btn('primary')}>{importPreview.mmfOnly?'잔액 업데이트':'가져오기 확인'}</button>
             </div>
           </div>
         </div>
