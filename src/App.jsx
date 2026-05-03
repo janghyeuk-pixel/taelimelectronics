@@ -3891,9 +3891,9 @@ function VoucherPage({ role }) {
   };
 
   const APPROVER_SLOTS=[
-    {key:'이사',   label:'이  사',   roleReq:'staff',  name:'박장혁 이사'},
+    {key:'이사',   label:'이  사',   roleReq:'master', name:'박장혁 이사'},
+    {key:'부사장', label:'부 사 장', roleReq:'staff',  name:'부사장'},
     {key:'대표',   label:'대  표',   roleReq:'admin',  name:'대표이사'},
-    {key:'부사장', label:'부 사 장', roleReq:'master', name:'부사장'},
   ];
   const mySlot=APPROVER_SLOTS.find(s=>s.roleReq===role);
   const isLocked=(v)=>v.approvals&&Object.values(v.approvals).some(a=>a);
