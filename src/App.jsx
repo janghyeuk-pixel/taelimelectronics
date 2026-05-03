@@ -1,6 +1,7 @@
 import { useState, Fragment, useEffect, useRef } from "react";
 /* global XLSX */
 import { auth, db } from './firebase';
+import { supabase } from './supabase';
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup
@@ -3843,9 +3844,10 @@ function ApprovalPage({ role }) {
 
 // ─── Voucher Page (전표) ──────────────────────────────────────
 function VoucherPage({ role }) {
-  const [vouchers,setVouchers]=useState(()=>store.get('tl_vouchers')||[]);
+  const [vouchers,setVouchers]=useState([]);
+  const [loading,setLoading]=useState(true);
   const [tab,setTab]=useState('write');
-  const [vType,setVType]=useState('transfer'); // transfer/income/expense
+  const [vType,setVType]=useState('transfer');
   const [form,setForm]=useState({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
   const [filter,setFilter]=useState({type:'all',month:''});
   const [flash,setFlash]=useState('');
@@ -3854,7 +3856,41 @@ function VoucherPage({ role }) {
   const authorName=store.get('tl_user_name')||role;
 
   const msg=(t)=>{ setFlash(t); setTimeout(()=>setFlash(''),3000); };
-  const saveV=(next)=>{ setVouchers(next); store.set('tl_vouchers',next); };
+
+  const vToDb=(v)=>({
+    id:v.id, vno:v.vno, type:v.type, date:v.date, amount:v.amount,
+    note:v.note||'', debit_acct:v.debitAcct||'', credit_acct:v.creditAcct||'',
+    account:v.account||'', payee:v.payee||'',
+    file_url:v.fileUrl||null, file_name:v.fileName||null,
+    author:v.author||'', created_at:v.createdAt||'',
+    status:v.status||'draft', approvals:v.approvals||{},
+  });
+  const dbToV=(r)=>({
+    id:r.id, vno:r.vno, type:r.type, date:r.date, amount:r.amount,
+    note:r.note, debitAcct:r.debit_acct, creditAcct:r.credit_acct,
+    account:r.account, payee:r.payee,
+    fileUrl:r.file_url, fileName:r.file_name,
+    author:r.author, createdAt:r.created_at,
+    status:r.status, approvals:r.approvals||{},
+  });
+
+  useEffect(()=>{
+    const load=async()=>{
+      setLoading(true);
+      const{data,error}=await supabase.from('vouchers').select('*').order('id',{ascending:false});
+      if(error){ console.error(error); msg('⚠ DB 로드 실패: '+error.message); }
+      else setVouchers((data||[]).map(dbToV));
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  const saveV=async(v)=>{
+    const{error}=await supabase.from('vouchers').upsert(vToDb(v));
+    if(error){ msg('⚠ 저장 실패: '+error.message); return false; }
+    setVouchers(prev=>{ const idx=prev.findIndex(x=>x.id===v.id); return idx>=0?prev.map(x=>x.id===v.id?v:x):[v,...prev]; });
+    return true;
+  };
 
   const handleFile=async(e)=>{
     const file=e.target.files[0]; if(!file) return;
@@ -3870,7 +3906,7 @@ function VoucherPage({ role }) {
     return `${prefix}-${yy}${String(count).padStart(3,'0')}`;
   };
 
-  const submitVoucher=()=>{
+  const submitVoucher=async()=>{
     const amt=Number(String(form.amount).replace(/,/g,''));
     if(!amt||amt<=0){ msg('⚠ 금액을 입력하세요.'); return; }
     if(vType==='transfer'&&(!form.debitAcct||!form.creditAcct)){ msg('⚠ 차변·대변 계정과목을 선택하세요.'); return; }
@@ -3882,9 +3918,10 @@ function VoucherPage({ role }) {
       account:form.account, payee:form.payee,
       fileUrl:form.fileUrl, fileName:form.file,
       author:authorName, createdAt:new Date().toISOString(),
-      status:'draft',
+      status:'draft', approvals:{},
     };
-    saveV([v,...vouchers]);
+    const ok=await saveV(v);
+    if(!ok) return;
     setForm({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
     msg('✓ 전표가 저장됐습니다.');
     setTab('list');
@@ -3899,19 +3936,23 @@ function VoucherPage({ role }) {
   const isLocked=(v)=>v.approvals&&Object.values(v.approvals).some(a=>a);
   const fmtAt=(iso)=>{ if(!iso) return ''; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
 
-  const handleApprove=(id)=>{
+  const handleApprove=async(id)=>{
     if(!mySlot){ alert('결재 권한이 없습니다.'); return; }
     const v=vouchers.find(vv=>vv.id===id); if(!v) return;
     if(v.approvals?.[mySlot.key]){ alert('이미 결재하셨습니다.'); return; }
     if(!window.confirm(`[${mySlot.name}] 결재하시겠습니까?\n\n결재 후에는 전표 수정 및 삭제가 불가합니다.`)) return;
-    const next=vouchers.map(vv=>vv.id===id?{...vv,approvals:{...(vv.approvals||{}),[mySlot.key]:{name:mySlot.name,at:new Date().toISOString()}},status:'approved'}:vv);
-    saveV(next); msg(`✓ ${mySlot.name} 결재 완료`);
+    const updated={...v, approvals:{...(v.approvals||{}),[mySlot.key]:{name:mySlot.name,at:new Date().toISOString()}}, status:'approved'};
+    const ok=await saveV(updated);
+    if(ok) msg(`✓ ${mySlot.name} 결재 완료`);
   };
 
-  const deleteV=(id)=>{
+  const deleteV=async(id)=>{
     const v=vouchers.find(vv=>vv.id===id);
     if(isLocked(v)){ alert('결재된 전표는 삭제할 수 없습니다.'); return; }
-    if(window.confirm('삭제하시겠습니까?')) saveV(vouchers.filter(vv=>vv.id!==id));
+    if(!window.confirm('삭제하시겠습니까?')) return;
+    const{error}=await supabase.from('vouchers').delete().eq('id',id);
+    if(error){ msg('⚠ 삭제 실패: '+error.message); return; }
+    setVouchers(prev=>prev.filter(vv=>vv.id!==id));
   };
 
   const handlePrint=(v)=>{
@@ -4006,7 +4047,7 @@ function VoucherPage({ role }) {
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
-        <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>전표 관리</span>
+        <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>전표 관리 {loading&&<span style={{fontSize:12,color:C.textHint,fontWeight:400}}>로딩 중...</span>}</span>
         <div style={{ display:'flex', gap:6 }}>
           <button onClick={()=>setTab('write')} style={{ ...btn(tab==='write'?'primary':'secondary'), height:34 }}>✏ 전표 작성</button>
           <button onClick={()=>setTab('list')} style={{ ...btn(tab==='list'?'primary':'secondary'), height:34 }}>📋 전표 목록 ({vouchers.length})</button>
