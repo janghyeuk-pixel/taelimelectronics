@@ -1,4 +1,5 @@
 import { useState, Fragment, useEffect, useRef } from "react";
+import * as XLSX from 'xlsx';
 import { auth, db } from './firebase';
 import {
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -1917,6 +1918,8 @@ function FinancePage() {
   const [accounts,setAccounts]=useState(()=>store.get('tl_finance_accounts')||INITIAL_ACCOUNTS);
   const [txnData,setTxnData]=useState(()=>store.get('tl_finance_txns')||{});
   const [autoSaveAt,setAutoSaveAt]=useState(null);
+  const [importPreview,setImportPreview]=useState(null);
+  const fileInputRefs=useRef({});
 
   const ymData=txnData[month]||{opening:0,rows:[]};
   const setYmData=(next)=>{
@@ -1954,8 +1957,143 @@ function FinancePage() {
   const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
   const lastBalance=computedRows.length>0?computedRows.at(-1).balance:ymData.opening||0;
 
+  const parseNum=(v)=>{ if(!v&&v!==0) return 0; return parseInt(String(v).replace(/[^0-9]/g,''))||0; };
+
+  const handleXlsFile=(acctKey,file)=>{
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      try {
+        const data=new Uint8Array(e.target.result);
+        const wb=XLSX.read(data,{type:'array',codepage:949});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const allRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const dateRe=/^\d{4}-\d{2}-\d{2}/;
+        const dataRows=allRows.filter(row=>row[0]&&dateRe.test(String(row[0])));
+
+        if(dataRows.length===0){ alert('거래 내역을 찾을 수 없습니다.\n파일 형식을 확인해 주세요.'); return; }
+
+        let parsed=[];
+        let finalBalance=0;
+
+        if(acctKey==='acct018'||acctKey==='acct032'){
+          // 기업은행 보통예금: 거래일시 | 출금 | 입금 | 거래후잔액 | 거래내용
+          parsed=dataRows.map(row=>({
+            date:String(row[0]).substring(0,10),
+            desc:`[${accounts[acctKey]?.label||acctKey}] ${String(row[4]||'')}`.trim(),
+            income:parseNum(row[2]),
+            expense:parseNum(row[1]),
+            balance:parseNum(row[3]),
+          })).filter(r=>r.income||r.expense);
+          if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
+        } else if(acctKey==='mmf'){
+          // 기업은행 MMF: 거래일시 | 매입금액 | col | col | 거래유형 | 환매금액 | ... | 잔액(col12)
+          parsed=dataRows.map(row=>({
+            date:String(row[0]).substring(0,10),
+            desc:`[MMF] ${String(row[4]||'거래')}`.trim(),
+            income:parseNum(row[1])||0,
+            expense:parseNum(row[5])||0,
+            balance:parseNum(row[12])||0,
+          })).filter(r=>r.income||r.expense);
+          if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
+        }
+
+        if(parsed.length===0){ alert('파싱된 거래 내역이 없습니다.'); return; }
+        setImportPreview({acctKey,rows:parsed,finalBalance});
+      } catch(err){ alert('파일 읽기 오류: '+err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+    if(fileInputRefs.current[acctKey]) fileInputRefs.current[acctKey].value='';
+  };
+
+  const confirmImport=()=>{
+    if(!importPreview) return;
+    const{acctKey,rows,finalBalance}=importPreview;
+    const existingKeys=new Set((ymData.rows||[]).map(r=>r.date+'|'+r.desc));
+    const newRows=rows
+      .filter(r=>!existingKeys.has(r.date+'|'+r.desc))
+      .map((r,i)=>({
+        id:Date.now()+i,
+        no:String((ymData.rows||[]).length+i+1).padStart(3,'0'),
+        date:r.date,
+        desc:r.desc,
+        income:r.income,
+        expense:r.expense,
+      }));
+    const merged=[...(ymData.rows||[]),...newRows].sort((a,b)=>a.date.localeCompare(b.date));
+    setYmData({...ymData,rows:merged});
+    if(finalBalance>0) upAcct(acctKey,'curr',finalBalance);
+    setImportPreview(null);
+  };
+
+  const IMPORT_BTNS=[
+    {key:'acct018',label:'보통018 가져오기',color:'#1d4ed8'},
+    {key:'acct032',label:'보통032 가져오기',color:'#1d4ed8'},
+    {key:'mmf',    label:'MMF 가져오기',   color:'#047857'},
+  ];
+
   return (
     <div>
+      {/* XLS 가져오기 */}
+      <div style={CARD}>
+        <SecHead icon="📂" title="통장 내역 가져오기 (XLS)" action={<span style={{fontSize:11,color:C.textHint}}>기업은행 거래내역 파일을 업로드하세요</span>} />
+        <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+          {IMPORT_BTNS.map(({key,label,color})=>(
+            <label key={key} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:color+'18',border:`1.5px solid ${color}44`,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600,color,transition:'background 0.15s'}}
+              onMouseEnter={e=>e.currentTarget.style.background=color+'30'}
+              onMouseLeave={e=>e.currentTarget.style.background=color+'18'}>
+              📂 {label}
+              <input type="file" accept=".xls,.xlsx" style={{display:'none'}}
+                ref={el=>fileInputRefs.current[key]=el}
+                onChange={e=>handleXlsFile(key,e.target.files[0])} />
+            </label>
+          ))}
+        </div>
+        <p style={{marginTop:10,fontSize:11.5,color:C.textHint}}>※ 파일 업로드 시 해당 월 내역에 자동 추가되고 계좌 잔액이 업데이트됩니다. 중복 항목은 건너뜁니다.</p>
+      </div>
+
+      {/* 가져오기 미리보기 모달 */}
+      {importPreview&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div style={{background:C.white,borderRadius:16,padding:24,width:'100%',maxWidth:720,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <div>
+                <span style={{fontSize:15,fontWeight:800,color:C.navyDark}}>가져오기 미리보기</span>
+                <span style={{marginLeft:10,fontSize:12,color:C.textSub}}>{accounts[importPreview.acctKey]?.label} · {importPreview.rows.length}건</span>
+              </div>
+              <button onClick={()=>setImportPreview(null)} style={{background:'transparent',border:'none',fontSize:22,cursor:'pointer',color:C.textHint}}>×</button>
+            </div>
+            <div style={{overflowY:'auto',flex:1,marginBottom:16}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                <thead><tr style={{background:C.navyBg}}>
+                  {['날짜','적요','입금','출금','잔액'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:h==='날짜'||h==='적요'?'left':'right',fontWeight:700,color:C.navy,borderBottom:`1px solid ${C.tBorder}`}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {importPreview.rows.map((r,i)=>(
+                    <tr key={i} style={{background:i%2===0?C.white:C.tAlt}}>
+                      <td style={{padding:'7px 10px',color:C.textSub,whiteSpace:'nowrap'}}>{r.date}</td>
+                      <td style={{padding:'7px 10px',color:C.text}}>{r.desc}</td>
+                      <td style={{padding:'7px 10px',textAlign:'right',color:r.income?C.blue:C.textHint,fontWeight:r.income?600:400}}>{r.income?fmt(r.income)+' 원':'-'}</td>
+                      <td style={{padding:'7px 10px',textAlign:'right',color:r.expense?C.red:C.textHint,fontWeight:r.expense?600:400}}>{r.expense?fmt(r.expense)+' 원':'-'}</td>
+                      <td style={{padding:'7px 10px',textAlign:'right',color:C.navyDark,fontWeight:600}}>{r.balance?fmt(r.balance)+' 원':'-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {importPreview.finalBalance>0&&(
+              <div style={{padding:'10px 14px',background:C.greenBg,borderRadius:10,marginBottom:14,fontSize:13,color:C.green,fontWeight:600}}>
+                ✓ 계좌 잔액이 <strong>{fmt(importPreview.finalBalance)}원</strong> 으로 자동 업데이트됩니다.
+              </div>
+            )}
+            <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+              <button onClick={()=>setImportPreview(null)} style={btn('secondary')}>취소</button>
+              <button onClick={confirmImport} style={btn('primary')}>가져오기 확인</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 월간 요약 카드 */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
         {[
@@ -2048,7 +2186,7 @@ function FinancePage() {
             </tr></thead>
             <tbody>
               {computedRows.length===0 && (
-                <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px', fontSize:13 }}>내역이 없습니다. 아래 버튼으로 추가하세요.</td></tr>
+                <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px', fontSize:13 }}>내역이 없습니다. 아래 버튼으로 추가하거나 XLS 파일을 가져오세요.</td></tr>
               )}
               {computedRows.map((row,idx)=>(
                 <tr key={row.id} style={{ background:idx%2===0?C.white:C.tAlt }}>
