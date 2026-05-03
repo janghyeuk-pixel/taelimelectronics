@@ -2029,7 +2029,6 @@ function FinancePage() {
   const IMPORT_BTNS=[
     {key:'acct018',label:'보통018 가져오기',color:'#1d4ed8'},
     {key:'acct032',label:'보통032 가져오기',color:'#1d4ed8'},
-    {key:'mmf',    label:'MMF 가져오기',   color:'#047857'},
   ];
 
   return (
