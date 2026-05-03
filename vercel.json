@@ -1,5 +1,5 @@
 {
   "outputDirectory": "dist",
-  "installCommand": "npm install --no-audit --legacy-peer-deps",
-  "buildCommand": "npm run build"
+  "installCommand": "npm install --include=dev --no-audit --legacy-peer-deps",
+  "buildCommand": "npx vite build"
 }
