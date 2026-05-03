@@ -4116,7 +4116,7 @@ function ManualPage() {
         { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 대표님 비밀번호: admin2024\n▸ 직원 비밀번호: taelim2024\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
         { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
         { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
-        { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 장혁에게 연락 주세요.' },
+        { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 박장혁 이사에게 연락 주세요.' },
       ],
       tip:'💡 로그인 화면 하단 [이메일로 로그인] 버튼은 직원 개인 계정용입니다. 대표님은 위 비밀번호로 로그인하시면 됩니다.',
     },
@@ -4292,7 +4292,7 @@ ${sections.map(s=>`
   </div>
 </div>`).join('')}
 <div class="footer">
-  <div style="font-weight:700;margin-bottom:3px;">문의: ${CO_TEL} (장혁) · Fax: ${CO_FAX}</div>
+  <div style="font-weight:700;margin-bottom:3px;">문의: ${CO_TEL} (박장혁 이사) · Fax: ${CO_FAX}</div>
   <div>${CO_ADDR}</div>
   <div style="margin-top:5px;">© ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved.</div>
 </div>
@@ -4363,7 +4363,7 @@ ${sections.map(s=>`
         <div>· <b>비밀번호</b> — 대표님: <b>admin2024</b> / 직원: <b>taelim2024</b></div>
         <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으니 주의!</div>
         <div>· <b>Telegram 알림</b> — 설정 탭에서 봇 토큰을 설정해야 긴급호출 알림이 작동합니다.</div>
-        <div>· <b>문의</b> — 시스템 문제 시 장혁 ({CO_TEL}) 에게 연락 주세요.</div>
+        <div>· <b>문의</b> — 시스템 문제 시 박장혁 이사 ({CO_TEL}) 에게 연락 주세요.</div>
       </div>
     </div>
   );
