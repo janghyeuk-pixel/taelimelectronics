@@ -1,3 +1,5 @@
 {
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "installCommand": "npm install --no-audit --legacy-peer-deps",
+  "buildCommand": "npm run build"
 }
