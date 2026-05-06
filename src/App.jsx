@@ -23,10 +23,17 @@ const INITIAL_TENANTS = [
 ];
 
 const INITIAL_ACCOUNTS = {
-  mmf:     { label:'MMF',    prev:0, curr:0 },
   acct018: { label:'보통018', prev:0, curr:0 },
   acct032: { label:'보통032', prev:0, curr:0 },
+  mmf:     { label:'MMF',    prev:0, curr:0 },
   cash:    { label:'현금',   prev:0, curr:0 },
+};
+const ACCT_ORDER = ['acct018','acct032','mmf','cash'];
+const ACCT_COLOR = {
+  acct018: { bg:'#dbeafe', fg:'#1e40af', border:'#bfdbfe', short:'018' },
+  acct032: { bg:'#e0e7ff', fg:'#3730a3', border:'#c7d2fe', short:'032' },
+  mmf:     { bg:'#d1fae5', fg:'#047857', border:'#a7f3d0', short:'MMF' },
+  cash:    { bg:'#fef3c7', fg:'#92400e', border:'#fde68a', short:'현금' },
 };
 
 const SAMPLE_READING = {
@@ -454,17 +461,19 @@ function RegisterPage({ onBack, onDone }) {
 // ─── Login ────────────────────────────────────────────────────
 function LoginPage({ onLogin, onGoogleLogin }) {
   const [pw,setPw]=useState('');
-  const [err,setErr]=useState(''); const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState('');
+  const [loading,setLoading]=useState(false);
   const [gLoading,setGLoading]=useState(false);
   const [showReg,setShowReg]=useState(false);
   const [showEmail,setShowEmail]=useState(false);
   const [email,setEmail]=useState('');
+  const [capsOn,setCapsOn]=useState(false);
 
   const go=async()=>{
     if(!pw){ setErr('비밀번호를 입력하세요.'); return; }
     setLoading(true); setErr('');
-    // 이메일 없으면 더미로 처리 (로컬 비밀번호 우선)
-    const result=await onLogin(email.trim()||'local@taelim.com', pw);
+    // 이메일 비어있으면 빈 문자열로 전달 → handleLogin에서 즉시 실패 처리 (8초 대기 X)
+    const result=await onLogin((email||'').trim(), pw);
     if(!result.ok){ setErr(result.error||'비밀번호가 올바르지 않습니다.'); setPw(''); }
     setLoading(false);
   };
@@ -475,7 +484,7 @@ function LoginPage({ onLogin, onGoogleLogin }) {
     setGLoading(false);
   };
 
-  const inp={ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.07)', border:'1.5px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s' };
+  const inp={ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.07)', border:'1.5px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s, background 0.2s' };
 
   if(showReg) return <RegisterPage onBack={()=>setShowReg(false)} />;
 
@@ -483,62 +492,83 @@ function LoginPage({ onLogin, onGoogleLogin }) {
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', padding:'20px', boxSizing:'border-box' }}>
       {/* 배경 사진 */}
       <div style={{ position:'fixed', inset:0, backgroundImage:'url(/bg.jpg)', backgroundSize:'cover', backgroundPosition:'center top', zIndex:0 }} />
-      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,rgba(6,6,26,0.80) 0%,rgba(15,15,46,0.72) 50%,rgba(10,22,40,0.82) 100%)', zIndex:0 }} />
+      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,rgba(6,6,26,0.82) 0%,rgba(15,15,46,0.74) 50%,rgba(10,22,40,0.84) 100%)', zIndex:0 }} />
+      {/* 미세한 vignette */}
+      <div style={{ position:'fixed', inset:0, background:'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.5) 100%)', zIndex:0, pointerEvents:'none' }} />
 
       {/* 카드 */}
-      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(10,10,30,0.55)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.5)' }}>
+      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(10,10,30,0.58)', backdropFilter:'blur(28px) saturate(140%)', WebkitBackdropFilter:'blur(28px) saturate(140%)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
         {/* 로고 + 회사명 */}
-        <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogoHero size={60} /></div>
-          <div style={{ fontSize:20, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.5)', letterSpacing:'1.5px', marginTop:4, textTransform:'uppercase' }}>구로디지털단지 · 통합 관리 시스템</div>
+        <div style={{ textAlign:'center', marginBottom:30 }}>
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogoHero size={64} /></div>
+          <div style={{ fontSize:21, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
+          <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.45)', letterSpacing:'2px', marginTop:6, textTransform:'uppercase', fontWeight:500 }}>TAE LIM ELECTRONICS · 통합 관리 시스템</div>
         </div>
 
         {/* Google 로그인 */}
         <button onClick={googleGo} disabled={gLoading}
-          style={{ width:'100%', background:'#fff', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:600, color:'#1a1a1a', cursor:gLoading?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.2)', boxSizing:'border-box' }}>
+          style={{ width:'100%', background:'#fff', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:600, color:'#1a1a1a', cursor:gLoading?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.25)', boxSizing:'border-box', transition:'transform 0.1s' }}
+          onMouseEnter={e=>e.currentTarget.style.transform='translateY(-1px)'}
+          onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
           <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-          {gLoading?'연결 중…':'Google로 로그인'}
+          {gLoading?'연결 중…':'Google 계정으로 계속'}
         </button>
 
         {/* 구분선 */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.08)' }} />
-          <span style={{ fontSize:11.5, color:'rgba(255,255,255,0.3)' }}>또는 이메일로</span>
-          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.08)' }} />
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.1)' }} />
+          <span style={{ fontSize:10.5, color:'rgba(255,255,255,0.4)', letterSpacing:'1.2px', textTransform:'uppercase' }}>또는</span>
+          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.1)' }} />
         </div>
 
-        {/* 이메일/비밀번호 */}
+        {/* 이메일 (토글) */}
         {showEmail && (
-          <div style={{ marginBottom:10 }}>
-            <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>이메일</div>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.3px', fontWeight:500 }}>이메일</div>
             <input type="email" placeholder="example@email.com" value={email}
               onChange={e=>{setEmail(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-              style={{ ...inp }} />
+              style={inp} />
           </div>
         )}
-        <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.5)', marginBottom:5 }}>비밀번호</div>
+
+        {/* 비밀번호 */}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.3px', fontWeight:500 }}>비밀번호</div>
           <input type="password" placeholder="비밀번호 입력" value={pw}
-            onChange={e=>{setPw(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.6)':'rgba(255,255,255,0.12)'}`, fontSize:16 }}
+            onChange={e=>{setPw(e.target.value);setErr('');}}
+            onKeyDown={e=>{ if(e.key==='Enter') go(); setCapsOn(e.getModifierState&&e.getModifierState('CapsLock')); }}
+            onKeyUp={e=>setCapsOn(e.getModifierState&&e.getModifierState('CapsLock'))}
+            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.55)':'rgba(255,255,255,0.12)'}`, fontSize:16 }}
             autoFocus />
-          {err && <div style={{ fontSize:12, color:'#f87171', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
+          {capsOn && !err && <div style={{ fontSize:11, color:'#fbbf24', marginTop:5, fontWeight:500 }}>⇪ Caps Lock 켜져 있음</div>}
+          {err && <div style={{ fontSize:12, color:'#fca5a5', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
         </div>
 
+        {/* 로그인 버튼 */}
         <button onClick={go} disabled={loading}
-          style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 20px rgba(99,102,241,0.4)', marginBottom:12, boxSizing:'border-box' }}>
+          style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 20px rgba(99,102,241,0.4)', marginBottom:10, boxSizing:'border-box', transition:'transform 0.1s, box-shadow 0.2s', letterSpacing:'0.5px' }}
+          onMouseEnter={e=>{ if(!loading){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 24px rgba(99,102,241,0.5)'; } }}
+          onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 20px rgba(99,102,241,0.4)'; }}>
           {loading?'로그인 중…':'로그인'}
         </button>
-        <button onClick={()=>setShowReg(true)}
-          style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'12px', fontSize:13, color:'rgba(255,255,255,0.5)', cursor:'pointer', boxSizing:'border-box' }}>
-          계정이 없으신가요? 회원가입
-        </button>
-        <button onClick={()=>setShowEmail(!showEmail)}
-          style={{ width:'100%', background:'transparent', border:'none', padding:'6px', fontSize:11, color:'rgba(255,255,255,0.2)', cursor:'pointer', marginTop:4, boxSizing:'border-box' }}>
-          {showEmail?'↑ 이메일 숨기기':'이메일 계정으로 로그인'}
-        </button>
-        <div style={{ textAlign:'center', marginTop:4, fontSize:10, color:'rgba(255,255,255,0.15)' }}>
+
+        {/* 보조 액션: 이메일 토글 + 회원가입 */}
+        <div style={{ display:'flex', gap:8, marginTop:6, marginBottom:4 }}>
+          <button onClick={()=>setShowEmail(!showEmail)}
+            style={{ flex:1, background:'transparent', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:'10px', fontSize:12, color:'rgba(255,255,255,0.65)', cursor:'pointer', boxSizing:'border-box', transition:'background 0.15s, border-color 0.15s', fontFamily:'inherit' }}
+            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.22)'; }}
+            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(255,255,255,0.14)'; }}>
+            {showEmail?'이메일 숨기기':'이메일 로그인'}
+          </button>
+          <button onClick={()=>setShowReg(true)}
+            style={{ flex:1, background:'transparent', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:'10px', fontSize:12, color:'rgba(255,255,255,0.65)', cursor:'pointer', boxSizing:'border-box', transition:'background 0.15s, border-color 0.15s', fontFamily:'inherit' }}
+            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.22)'; }}
+            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(255,255,255,0.14)'; }}>
+            회원가입
+          </button>
+        </div>
+
+        <div style={{ textAlign:'center', marginTop:18, fontSize:10, color:'rgba(255,255,255,0.25)', letterSpacing:'0.5px' }}>
           © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.
         </div>
       </div>
@@ -1917,17 +1947,35 @@ function FinancePage() {
   const now=new Date();
   const [month,setMonth]=useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
   const [accounts,setAccounts]=useState(()=>store.get('tl_finance_accounts')||INITIAL_ACCOUNTS);
-  const [txnData,setTxnData]=useState(()=>store.get('tl_finance_txns')||{});
+
+  // 마이그레이션: 모든 행에 acct 필드 보장 (옛 데이터 → 'acct018')
+  const [txnData,setTxnData]=useState(()=>{
+    const raw=store.get('tl_finance_txns')||{};
+    const out={};
+    Object.keys(raw).forEach(m=>{
+      const d=raw[m]||{};
+      out[m]={ ...d, rows:(d.rows||[]).map(r=>({ ...r, acct:r.acct||'acct018' })) };
+    });
+    return out;
+  });
+
   const [autoSaveAt,setAutoSaveAt]=useState(null);
   const [importPreview,setImportPreview]=useState(null);
+  const [acctFilter,setAcctFilter]=useState('all');
+  const [defaultAcct,setDefaultAcct]=useState('acct018');
   const fileInputRefs=useRef({});
 
-  const ymData=txnData[month]||{opening:0,rows:[]};
+  const ymData=txnData[month]||{rows:[]};
+
+  // 날짜 오름차순 + ID 안정정렬 → 001/002/003... 자동 번호
+  const sortAndRenumber=(rows)=>[...rows]
+    .sort((a,b)=>{ const dc=(a.date||'').localeCompare(b.date||''); return dc!==0?dc:(a.id||0)-(b.id||0); })
+    .map((r,i)=>({...r, no:String(i+1).padStart(3,'0')}));
+
   const setYmData=(next)=>{
-    const nd={...txnData,[month]:next};
-    setTxnData(nd);
-    store.set('tl_finance_txns',nd);
-    setAutoSaveAt(new Date());
+    const cleaned={...next, rows:sortAndRenumber(next.rows||[])};
+    const nd={...txnData,[month]:cleaned};
+    setTxnData(nd); store.set('tl_finance_txns',nd); setAutoSaveAt(new Date());
   };
 
   const upAcct=(key,field,val)=>{
@@ -1935,28 +1983,47 @@ function FinancePage() {
     setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
   };
 
-  const computedRows=(()=>{
-    let bal=ymData.opening||0;
-    return (ymData.rows||[]).map(row=>{ bal+=(row.income||0)-(row.expense||0); return {...row,balance:bal}; });
-  })();
+  const acctKeys=ACCT_ORDER.filter(k=>accounts[k]);
 
-  const acctKeys=Object.keys(accounts);
+  const acctNet=(k)=>(ymData.rows||[]).filter(r=>r.acct===k).reduce((s,r)=>s+(r.income||0)-(r.expense||0),0);
+  const expectedCurr=(k)=>(accounts[k]?.prev||0)+acctNet(k);
+  const mismatchDelta=(k)=>(accounts[k]?.curr||0)-expectedCurr(k);
+  const mismatches=acctKeys.filter(k=>Math.abs(mismatchDelta(k))>0);
+  const hasMismatch=mismatches.length>0;
+
   const totalPrev=acctKeys.reduce((s,k)=>s+(accounts[k].prev||0),0);
   const totalCurr=acctKeys.reduce((s,k)=>s+(accounts[k].curr||0),0);
+  const totalIncome=(ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0);
+  const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
+  const totalExpectedCurr=totalPrev+totalIncome-totalExpense;
 
-  const addRow=()=>setYmData({...ymData,rows:[...(ymData.rows||[]),{id:Date.now(),no:String((ymData.rows||[]).length+1).padStart(3,'0'),date:`${month}-01`,desc:'',income:0,expense:0}]});
-  const delRow=(id)=>setYmData({...ymData,rows:ymData.rows.filter(r=>r.id!==id)});
-  const upRow=(id,field,val)=>setYmData({...ymData,rows:ymData.rows.map(r=>r.id===id?{...r,[field]:['income','expense'].includes(field)?Number(val)||0:val}:r)});
+  const displayRows=(ymData.rows||[]).filter(r=>acctFilter==='all'||r.acct===acctFilter);
+  const computedRows=(()=>{
+    if(acctFilter==='all') return displayRows.map(r=>({...r,balance:null}));
+    let bal=accounts[acctFilter]?.prev||0;
+    return displayRows.map(r=>{ bal+=(r.income||0)-(r.expense||0); return {...r,balance:bal}; });
+  })();
+
+  const addRow=()=>setYmData({...ymData, rows:[...(ymData.rows||[]),{
+    id:Date.now(), no:'', date:`${month}-01`,
+    acct:acctFilter!=='all'?acctFilter:defaultAcct,
+    desc:'', income:0, expense:0,
+  }]});
+  const delRow=(id)=>setYmData({...ymData, rows:(ymData.rows||[]).filter(r=>r.id!==id)});
+  const upRow=(id,field,val)=>setYmData({
+    ...ymData,
+    rows:(ymData.rows||[]).map(r=>{
+      if(r.id!==id) return r;
+      if(field==='income'||field==='expense') return {...r,[field]:Number(val)||0};
+      return {...r,[field]:val};
+    }),
+  });
 
   const shiftMonth=(delta)=>{ const [y,m]=month.split('-').map(Number); const d=new Date(y,m-1+delta,1); setMonth(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`); };
   const [yy,mm]=month.split('-');
   const monthLabel=`${yy}년 ${Number(mm)}월`;
 
   const inlineInputStyle=(color)=>({ ...baseInput, background:'transparent', border:'1px solid transparent', padding:'3px 5px', borderRadius:6, textAlign:color?'right':'left', color:color||C.text, fontVariantNumeric:color?'tabular-nums':'normal', transition:'border-color 0.15s' });
-
-  const totalIncome=(ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0);
-  const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
-  const lastBalance=computedRows.length>0?computedRows.at(-1).balance:ymData.opening||0;
 
   const parseNum=(v)=>{ if(!v&&v!==0) return 0; return parseInt(String(v).replace(/[^0-9]/g,''))||0; };
 
@@ -1971,25 +2038,20 @@ function FinancePage() {
         const allRows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         const dateRe=/^\d{4}-\d{2}-\d{2}/;
         const dataRows=allRows.filter(row=>row[0]&&dateRe.test(String(row[0])));
-
         if(dataRows.length===0){ alert('거래 내역을 찾을 수 없습니다.\n파일 형식을 확인해 주세요.'); return; }
 
-        let parsed=[];
-        let finalBalance=0;
-
+        let parsed=[]; let finalBalance=0;
         if(acctKey==='acct018'||acctKey==='acct032'){
-          // 기업은행 보통예금: 거래일시 | 출금 | 입금 | 거래후잔액 | 거래내용
           parsed=dataRows.map(row=>({
             date:String(row[0]).substring(0,10),
-            desc:`[${accounts[acctKey]?.label||acctKey}] ${String(row[4]||'')}`.trim(),
+            desc:String(row[4]||'').trim(),
             income:parseNum(row[2]),
             expense:parseNum(row[1]),
             balance:parseNum(row[3]),
+            acct:acctKey,
           })).filter(r=>r.income||r.expense);
           if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
         } else if(acctKey==='mmf'){
-          // MMF: 잔액만 업데이트 (거래내역 추가 안 함 - 이중계산 방지)
-          // 기업은행 MMF 파일: col[12] = 잔액
           const lastRow=dataRows[dataRows.length-1];
           finalBalance=parseNum(lastRow[12])||parseNum(lastRow[6])||parseNum(lastRow[7])||0;
           if(!finalBalance){ alert('MMF 잔액을 찾을 수 없습니다.\n파일을 확인해 주세요.'); return; }
@@ -1998,7 +2060,13 @@ function FinancePage() {
         }
 
         if(parsed.length===0){ alert('파싱된 거래 내역이 없습니다.'); return; }
-        setImportPreview({acctKey,rows:parsed,finalBalance});
+        const monthFiltered=parsed.filter(r=>r.date.startsWith(month));
+        if(monthFiltered.length===0){
+          if(!confirm(`이 파일에는 ${monthLabel} 거래내역이 없습니다.\n전체를 가져올까요? (월 필터 무시)`)) return;
+          setImportPreview({acctKey,rows:parsed,finalBalance});
+        } else {
+          setImportPreview({acctKey,rows:monthFiltered,finalBalance});
+        }
       } catch(err){ alert('파일 읽기 오류: '+err.message); }
     };
     reader.readAsArrayBuffer(file);
@@ -2007,35 +2075,83 @@ function FinancePage() {
 
   const confirmImport=()=>{
     if(!importPreview) return;
-    const{acctKey,rows,finalBalance}=importPreview;
-    const existingKeys=new Set((ymData.rows||[]).map(r=>r.date+'|'+r.desc));
+    const{acctKey,rows,finalBalance,mmfOnly}=importPreview;
+    if(mmfOnly){ upAcct(acctKey,'curr',finalBalance); setImportPreview(null); return; }
+    // 강력 중복 키: 날짜|계좌|입금|출금|적요30
+    const dedupKey=(r)=>`${r.date}|${r.acct}|${r.income}|${r.expense}|${(r.desc||'').slice(0,30)}`;
+    const existingKeys=new Set((ymData.rows||[]).map(dedupKey));
     const newRows=rows
-      .filter(r=>!existingKeys.has(r.date+'|'+r.desc))
+      .filter(r=>!existingKeys.has(dedupKey(r)))
       .map((r,i)=>({
-        id:Date.now()+i,
-        no:String((ymData.rows||[]).length+i+1).padStart(3,'0'),
-        date:r.date,
-        desc:r.desc,
-        income:r.income,
-        expense:r.expense,
+        id:Date.now()+i, no:'', date:r.date, acct:acctKey,
+        desc:r.desc, income:r.income, expense:r.expense,
       }));
-    const merged=[...(ymData.rows||[]),...newRows].sort((a,b)=>a.date.localeCompare(b.date));
+    const skipped=rows.length-newRows.length;
+    const merged=[...(ymData.rows||[]),...newRows];
     setYmData({...ymData,rows:merged});
     if(finalBalance>0) upAcct(acctKey,'curr',finalBalance);
     setImportPreview(null);
+    if(skipped>0) setTimeout(()=>alert(`${newRows.length}건 추가 · ${skipped}건 중복 제외됨.`),100);
+  };
+
+  const syncAcctsFromLedger=()=>{
+    if(!confirm('거래내역 합계 기준으로 [현재 잔고]를 다시 계산해서 덮어쓸까요?')) return;
+    const next={...accounts};
+    acctKeys.forEach(k=>{ next[k]={...next[k], curr:expectedCurr(k)}; });
+    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
+  };
+
+  const rolloverPrev=()=>{
+    if(!confirm('현재 잔고를 [전월 잔고]로 이월 적용하시겠습니까?\n다음달로 넘어가기 전에 사용하세요.')) return;
+    const next={...accounts};
+    acctKeys.forEach(k=>{ next[k]={...next[k], prev:accounts[k].curr||0}; });
+    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
   };
 
   const IMPORT_BTNS=[
-    {key:'acct018',label:'보통018 가져오기',color:'#1d4ed8'},
-    {key:'acct032',label:'보통032 가져오기',color:'#1d4ed8'},
-    {key:'mmf',    label:'MMF 잔액 업데이트',color:'#047857'},
+    {key:'acct018', label:'보통018 가져오기', color:'#1d4ed8'},
+    {key:'acct032', label:'보통032 가져오기', color:'#3730a3'},
+    {key:'mmf',     label:'MMF 잔액 업데이트', color:'#047857'},
   ];
 
   return (
     <div>
+      {/* 월간 요약 카드 */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
+        {[
+          {icon:'💼', label:'총 잔고 (현재)',     value:`${fmt(totalCurr)}원`,         color:C.navyDark, bg:C.navyBg, border:C.navyBg2,           sub:`전월 대비 ${(totalCurr-totalPrev)>=0?'+':''}${fmt(totalCurr-totalPrev)}원`},
+          {icon:'📥', label:`${monthLabel} 입금`,  value:`${fmt(totalIncome)}원`,       color:C.blue,     bg:C.blueBg, border:C.blueBorder,         sub:`${(ymData.rows||[]).filter(r=>r.income).length}건`},
+          {icon:'📤', label:`${monthLabel} 출금`,  value:`${fmt(totalExpense)}원`,      color:C.red,      bg:C.redBg,  border:C.redBorder,          sub:`${(ymData.rows||[]).filter(r=>r.expense).length}건`},
+          {icon:'📊', label:'예상 잔고 (자동계산)', value:`${fmt(totalExpectedCurr)}원`, color:hasMismatch?C.amber:C.green, bg:hasMismatch?C.amberBg:C.greenBg, border:hasMismatch?C.amberBorder:C.greenBorder, sub:hasMismatch?`수기와 ${fmt(totalCurr-totalExpectedCurr)} 차이`:'잔고와 일치'},
+        ].map(({icon,label,value,color,bg,border,sub})=>(
+          <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'16px 14px' }}>
+            <div style={{ fontSize:18, marginBottom:6 }}>{icon}</div>
+            <div style={{ fontSize:11, color:C.textSub, marginBottom:4 }}>{label}</div>
+            <div style={{ fontSize:15, fontWeight:800, color, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px', marginBottom:3 }}>{value}</div>
+            <div style={{ fontSize:10.5, color:C.textHint }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 미스매치 경고 */}
+      {hasMismatch && (
+        <div style={{ background:C.amberBg, border:`1.5px solid ${C.amberBorder}`, borderRadius:12, padding:'12px 16px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:280 }}>
+            <span style={{ fontSize:20 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.amber, marginBottom:2 }}>잔고와 거래내역이 안 맞습니다</div>
+              <div style={{ fontSize:11.5, color:'#78350f' }}>
+                {mismatches.map(k=>`${accounts[k].label} ${mismatchDelta(k)>=0?'+':''}${fmt(mismatchDelta(k))}원`).join(' · ')}
+              </div>
+            </div>
+          </div>
+          <button onClick={syncAcctsFromLedger} style={{ ...btn('amber'), height:32 }}>🔄 거래내역 기준으로 잔고 맞추기</button>
+        </div>
+      )}
+
       {/* XLS 가져오기 */}
       <div style={CARD}>
-        <SecHead icon="📂" title="통장 내역 가져오기 (XLS)" action={<span style={{fontSize:11,color:C.textHint}}>기업은행 거래내역 파일을 업로드하세요</span>} />
+        <SecHead icon="📂" title="통장 내역 가져오기 (XLS)" action={<span style={{fontSize:11,color:C.textHint}}>{monthLabel} 거래만 자동 추출 · 중복 제외 · 날짜순 정렬</span>} />
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
           {IMPORT_BTNS.map(({key,label,color})=>(
             <label key={key} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:color+'18',border:`1.5px solid ${color}44`,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600,color,transition:'background 0.15s'}}
@@ -2048,7 +2164,6 @@ function FinancePage() {
             </label>
           ))}
         </div>
-        <p style={{marginTop:10,fontSize:11.5,color:C.textHint}}>※ 파일 업로드 시 해당 월 내역에 자동 추가되고 계좌 잔액이 업데이트됩니다. 중복 항목은 건너뜁니다.</p>
       </div>
 
       {/* 가져오기 미리보기 모달 */}
@@ -2056,7 +2171,7 @@ function FinancePage() {
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
           <div style={{background:C.white,borderRadius:16,padding:24,width:'100%',maxWidth:importPreview.mmfOnly?440:720,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.3)'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-              <span style={{fontSize:15,fontWeight:800,color:C.navyDark}}>{importPreview.mmfOnly?'MMF 잔액 업데이트':'가져오기 미리보기'}</span>
+              <span style={{fontSize:15,fontWeight:800,color:C.navyDark}}>{importPreview.mmfOnly?'MMF 잔액 업데이트':`가져오기 미리보기 (${importPreview.rows.length}건)`}</span>
               <button onClick={()=>setImportPreview(null)} style={{background:'transparent',border:'none',fontSize:22,cursor:'pointer',color:C.textHint}}>×</button>
             </div>
             {importPreview.mmfOnly?(
@@ -2098,43 +2213,35 @@ function FinancePage() {
         </div>
       )}
 
-      {/* 월간 요약 카드 */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
-        {[
-          { icon:'💼', label:'총 잔고 (현재)', value:`${fmt(totalCurr)}원`, color:C.navyDark, bg:C.navyBg, border:C.navyBg2, sub:`전월 대비 ${(totalCurr-totalPrev)>=0?'+':''}${fmt(totalCurr-totalPrev)}원` },
-          { icon:'📥', label:`${monthLabel} 입금 합계`, value:`${fmt(totalIncome)}원`, color:C.blue, bg:C.blueBg, border:C.blueBorder, sub:'이번달 수입' },
-          { icon:'📤', label:`${monthLabel} 출금 합계`, value:`${fmt(totalExpense)}원`, color:C.red, bg:C.redBg, border:C.redBorder, sub:'이번달 지출' },
-          { icon:'📊', label:'최종 잔액', value:`${fmt(lastBalance)}원`, color:C.green, bg:C.greenBg, border:C.greenBorder, sub:'이월잔액 포함' },
-        ].map(({icon,label,value,color,bg,border,sub})=>(
-          <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'16px 14px' }}>
-            <div style={{ fontSize:18, marginBottom:6 }}>{icon}</div>
-            <div style={{ fontSize:11, color:C.textSub, marginBottom:4 }}>{label}</div>
-            <div style={{ fontSize:15, fontWeight:800, color, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px', marginBottom:3 }}>{value}</div>
-            <div style={{ fontSize:10.5, color:C.textHint }}>{sub}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Account Summary */}
+      {/* 예금·잔고 현황 */}
       <div style={CARD}>
         <SecHead icon="🏦" title="예금·잔고 현황" action={
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {autoSaveAt && <span style={{ fontSize:11, color:C.green }}>✓ 자동저장 {autoSaveAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>}
-            <span style={{ fontSize:11.5, color:C.textHint }}>셀 클릭하여 수정</span>
+            <button onClick={rolloverPrev} style={{ ...btn('ghost'), height:28, fontSize:11.5 }} title="현재 잔고를 [전월 잔고] 칸으로 이월 (월 마감 시)">📤 잔고 이월</button>
           </div>
         } />
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead><tr>
-              {[['계정','left',120],['전월 잔고','right'],['현재 잔고','right'],['증감','right',120]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}
+              {[['계정','left',140],['전월 잔고','right'],['현재 잔고','right'],['거래 합계','right',120],['예상 잔고','right',120],['일치','center',56]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}
             </tr></thead>
             <tbody>
               {acctKeys.map((key,i)=>{
                 const a=accounts[key];
-                const diff=(a.curr||0)-(a.prev||0);
+                const net=acctNet(key);
+                const exp=expectedCurr(key);
+                const delta=mismatchDelta(key);
+                const matched=delta===0;
+                const c=ACCT_COLOR[key];
                 return (
                   <tr key={key} style={{ background:i%2===0?C.white:C.tAlt }}>
-                    <td style={TD('left',{fontWeight:600,color:C.navy})}>{a.label}</td>
+                    <td style={TD('left')}>
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+                        <span style={{ fontSize:10, fontWeight:700, color:c.fg, background:c.bg, border:`1px solid ${c.border}`, padding:'2px 7px', borderRadius:6, letterSpacing:'0.3px' }}>{c.short}</span>
+                        <span style={{ fontWeight:600, color:C.navy }}>{a.label}</span>
+                      </span>
+                    </td>
                     <td style={TD('right')}>
                       <input type="number" value={a.prev||''} onChange={e=>upAcct(key,'prev',e.target.value)}
                         style={{ ...inlineInputStyle(C.textMid), width:'100%' }}
@@ -2143,11 +2250,17 @@ function FinancePage() {
                     </td>
                     <td style={TD('right')}>
                       <input type="number" value={a.curr||''} onChange={e=>upAcct(key,'curr',e.target.value)}
-                        style={{ ...inlineInputStyle(C.navyDark), width:'100%', fontWeight:600 }}
+                        style={{ ...inlineInputStyle(C.navyDark), width:'100%', fontWeight:700 }}
                         onFocus={e=>(e.target.style.borderColor=C.navyBg2)}
                         onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
-                    <td style={TD('right',{fontWeight:600,color:diff>=0?C.blue:C.red})}>{diff>=0?'+':''}{fmt(diff)}</td>
+                    <td style={TD('right',{fontWeight:600,color:net>=0?C.blue:C.red})}>{net>=0?'+':''}{fmt(net)}</td>
+                    <td style={TD('right',{fontWeight:600,color:C.text})}>{fmt(exp)}</td>
+                    <td style={TD('center')}>
+                      {matched
+                        ?<span style={{ fontSize:13, color:C.green }}>✓</span>
+                        :<span title={`차이 ${fmt(delta)}원`} style={{ fontSize:13, color:C.amber, fontWeight:700 }}>⚠</span>}
+                    </td>
                   </tr>
                 );
               })}
@@ -2155,19 +2268,22 @@ function FinancePage() {
                 <td style={TD('left',{fontWeight:800,color:C.navyDark,fontSize:14})}>합 계</td>
                 <td style={TD('right',{fontWeight:600,color:C.navyDark})}>{fmt(totalPrev)}</td>
                 <td style={TD('right',{fontWeight:800,color:C.navyDark,fontSize:16})}>{fmt(totalCurr)}</td>
-                <td style={TD('right',{fontWeight:700,color:(totalCurr-totalPrev)>=0?C.blue:C.red,fontSize:14})}>{(totalCurr-totalPrev)>=0?'+':''}{fmt(totalCurr-totalPrev)}</td>
+                <td style={TD('right',{fontWeight:700,color:(totalIncome-totalExpense)>=0?C.blue:C.red})}>{(totalIncome-totalExpense)>=0?'+':''}{fmt(totalIncome-totalExpense)}</td>
+                <td style={TD('right',{fontWeight:700,color:C.text,fontSize:14})}>{fmt(totalExpectedCurr)}</td>
+                <td style={TD('center')}>{hasMismatch?<span style={{color:C.amber,fontWeight:700}}>⚠</span>:<span style={{color:C.green}}>✓</span>}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Transaction Ledger */}
+      {/* 입출금 내역 */}
       <div style={CARD}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, paddingBottom:14, borderBottom:`1px solid ${C.tBorder}` }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, paddingBottom:14, borderBottom:`1px solid ${C.tBorder}`, flexWrap:'wrap', gap:10 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ width:28, height:28, borderRadius:8, background:C.navyBg, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>📋</div>
-            <span style={{ fontSize:14, fontWeight:600, color:C.navy }}>입출금 내역</span>
+            <span style={{ fontSize:14, fontWeight:700, color:C.navy }}>입출금 내역</span>
+            <span style={{ fontSize:11.5, color:C.textHint, marginLeft:4 }}>총 {(ymData.rows||[]).length}건 · 날짜 자동 정렬 · 번호 자동매김</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <button onClick={()=>shiftMonth(-1)} style={{ ...btn('secondary'), padding:'0 12px', height:30, borderRadius:20 }}>←</button>
@@ -2176,96 +2292,130 @@ function FinancePage() {
           </div>
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, padding:'10px 14px', background:C.navyBg, borderRadius:12 }}>
-          <span style={{ fontSize:13, fontWeight:600, color:C.navyDark, whiteSpace:'nowrap' }}>이월잔액</span>
-          <input type="number" value={ymData.opening||''} onChange={e=>setYmData({...ymData,opening:Number(e.target.value)||0})}
-            style={{ ...baseInput, maxWidth:200, textAlign:'right', fontVariantNumeric:'tabular-nums' }} />
-          <span style={{ fontSize:12, color:C.textSub }}>원</span>
+        {/* 계좌 필터 칩 */}
+        <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap', alignItems:'center' }}>
+          <span style={{ fontSize:11.5, color:C.textSub, marginRight:4 }}>계좌 필터</span>
+          {[['all','전체',null], ...acctKeys.map(k=>[k,accounts[k].label,ACCT_COLOR[k]])].map(([k,label,color])=>{
+            const active=acctFilter===k;
+            const cnt=k==='all'?(ymData.rows||[]).length:(ymData.rows||[]).filter(r=>r.acct===k).length;
+            return (
+              <button key={k} onClick={()=>setAcctFilter(k)} style={{
+                padding:'5px 12px', borderRadius:16, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+                background: active?(color?color.fg:C.navyDark):(color?color.bg:C.white),
+                color:    active?'#fff':(color?color.fg:C.textMid),
+                border:`1px solid ${active?(color?color.fg:C.navyDark):(color?color.border:C.border)}`,
+                transition:'all 0.15s',
+              }}>{label} <span style={{ opacity:0.7, marginLeft:4 }}>({cnt})</span></button>
+            );
+          })}
         </div>
 
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse' }}>
             <thead><tr>
-              {[['전표번호','left',90],['날짜','left',120],['적요','left'],['입금','right',130],['출금','right',130],['잔액','right',130],['','center',36]].map(([h,a,w])=><th key={h+a} style={TH(a,w)}>{h}</th>)}
+              {[['No','left',56],['날짜','left',120],['계좌','left',86],['적요','left'],['입금','right',130],['출금','right',130],...(acctFilter!=='all'?[['잔액','right',130]]:[]),['','center',36]].map(([h,a,w])=><th key={h+a} style={TH(a,w)}>{h}</th>)}
             </tr></thead>
             <tbody>
               {computedRows.length===0 && (
-                <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px', fontSize:13 }}>내역이 없습니다. 아래 버튼으로 추가하거나 XLS 파일을 가져오세요.</td></tr>
+                <tr><td colSpan={acctFilter!=='all'?8:7} style={{ ...TD('center'), color:C.textHint, padding:'32px', fontSize:13 }}>내역이 없습니다. [+ 행 추가] 또는 통장 XLS 가져오기로 추가하세요.</td></tr>
               )}
-              {computedRows.map((row,idx)=>(
-                <tr key={row.id} style={{ background:idx%2===0?C.white:C.tAlt }}>
-                  <td style={TD('left')}>
-                    <input value={row.no||''} onChange={e=>upRow(row.id,'no',e.target.value)} style={{ ...inlineInputStyle(), width:70, fontSize:12 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
-                  </td>
-                  <td style={TD('left')}>
-                    <input type="date" value={row.date||''} onChange={e=>upRow(row.id,'date',e.target.value)} style={{ ...inlineInputStyle(), fontSize:12 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
-                  </td>
-                  <td style={TD('left')}>
-                    <input value={row.desc||''} onChange={e=>upRow(row.id,'desc',e.target.value)} placeholder="적요" style={{ ...inlineInputStyle(), minWidth:120 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
-                  </td>
-                  <td style={TD('right')}>
-                    <input type="number" value={row.income||''} onChange={e=>upRow(row.id,'income',e.target.value)} style={{ ...inlineInputStyle(row.income?C.blue:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
-                  </td>
-                  <td style={TD('right')}>
-                    <input type="number" value={row.expense||''} onChange={e=>upRow(row.id,'expense',e.target.value)} style={{ ...inlineInputStyle(row.expense?C.red:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
-                  </td>
-                  <td style={TD('right',{fontWeight:700,color:row.balance>=0?C.text:C.red})}>{fmt(row.balance)}</td>
-                  <td style={TD('center')}>
-                    <button onClick={()=>delRow(row.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
-                  </td>
-                </tr>
-              ))}
+              {computedRows.map((row,idx)=>{
+                const c=ACCT_COLOR[row.acct]||{ bg:'#f1f5f9', fg:'#64748b', border:'#e2e8f0', short:'?' };
+                return (
+                  <tr key={row.id} style={{ background:idx%2===0?C.white:C.tAlt }}>
+                    <td style={TD('left',{color:C.textHint,fontSize:11.5,fontVariantNumeric:'tabular-nums'})}>{row.no||String(idx+1).padStart(3,'0')}</td>
+                    <td style={TD('left')}>
+                      <input type="date" value={row.date||''} onChange={e=>upRow(row.id,'date',e.target.value)} style={{ ...inlineInputStyle(), fontSize:12 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                    </td>
+                    <td style={TD('left')}>
+                      <select value={row.acct||''} onChange={e=>upRow(row.id,'acct',e.target.value)}
+                        style={{ ...inlineInputStyle(), background:c.bg, color:c.fg, border:`1px solid ${c.border}`, fontSize:11, fontWeight:700, padding:'3px 6px', cursor:'pointer' }}>
+                        {acctKeys.map(k=><option key={k} value={k}>{ACCT_COLOR[k].short}</option>)}
+                      </select>
+                    </td>
+                    <td style={TD('left')}>
+                      <input value={row.desc||''} onChange={e=>upRow(row.id,'desc',e.target.value)} placeholder="적요" style={{ ...inlineInputStyle(), minWidth:120 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                    </td>
+                    <td style={TD('right')}>
+                      <input type="number" value={row.income||''} onChange={e=>upRow(row.id,'income',e.target.value)} style={{ ...inlineInputStyle(row.income?C.blue:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                    </td>
+                    <td style={TD('right')}>
+                      <input type="number" value={row.expense||''} onChange={e=>upRow(row.id,'expense',e.target.value)} style={{ ...inlineInputStyle(row.expense?C.red:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                    </td>
+                    {acctFilter!=='all' && <td style={TD('right',{fontWeight:700,color:row.balance>=0?C.text:C.red})}>{fmt(row.balance)}</td>}
+                    <td style={TD('center')}>
+                      <button onClick={()=>delRow(row.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
         <div style={{ marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
-          <div style={{display:'flex',gap:8}}>
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <button onClick={addRow} style={btn('navyGhost')}>+ 행 추가</button>
-            <button onClick={()=>{ if(window.confirm(`${monthLabel} 입출금 내역을 전부 삭제할까요?`)) setYmData({...ymData,rows:[],opening:0}); }} style={{...btn('secondary'),color:C.red,borderColor:C.red+'44'}}>🗑 이 달 초기화</button>
+            {acctFilter==='all' && (
+              <select value={defaultAcct} onChange={e=>setDefaultAcct(e.target.value)} style={{ ...baseInput, width:'auto', padding:'6px 10px', fontSize:12, cursor:'pointer' }}>
+                {acctKeys.map(k=><option key={k} value={k}>새 행 → {accounts[k].label}</option>)}
+              </select>
+            )}
+            <button onClick={()=>{
+              const target=acctFilter==='all'?'전체':accounts[acctFilter].label;
+              if(window.confirm(`${monthLabel} 입출금 내역${acctFilter!=='all'?` (${target}만)`:''} 전부 삭제할까요?`)){
+                const rest=acctFilter==='all'?[]:(ymData.rows||[]).filter(r=>r.acct!==acctFilter);
+                setYmData({...ymData,rows:rest});
+              }
+            }} style={{...btn('secondary'),color:C.red,borderColor:C.red+'44'}}>🗑 {acctFilter==='all'?'전부 삭제':'필터 계좌 삭제'}</button>
           </div>
-          {computedRows.length>0 && (
-            <div style={{ fontSize:13, color:C.textSub, display:'flex', gap:16 }}>
-              <span>입금 합계 <span style={{ fontWeight:700, color:C.blue }}>{fmt((ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0))}원</span></span>
-              <span>출금 합계 <span style={{ fontWeight:700, color:C.red }}>{fmt((ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0))}원</span></span>
-              <span>최종잔액 <span style={{ fontWeight:800, color:C.navyDark }}>{fmt(computedRows.at(-1)?.balance||0)}원</span></span>
+          {displayRows.length>0 && (
+            <div style={{ fontSize:13, color:C.textSub, display:'flex', gap:16, flexWrap:'wrap' }}>
+              <span>입금 <span style={{ fontWeight:700, color:C.blue }}>{fmt(displayRows.reduce((s,r)=>s+(r.income||0),0))}원</span></span>
+              <span>출금 <span style={{ fontWeight:700, color:C.red }}>{fmt(displayRows.reduce((s,r)=>s+(r.expense||0),0))}원</span></span>
+              {acctFilter!=='all' && <span>계좌 잔액 <span style={{ fontWeight:800, color:C.navyDark }}>{fmt(computedRows.at(-1)?.balance||accounts[acctFilter].prev||0)}원</span></span>}
             </div>
           )}
         </div>
       </div>
 
-      {/* 인쇄 버튼 */}
+      {/* 인쇄 */}
       <div style={{display:'flex',justifyContent:'flex-end',marginTop:8}}>
-        <button onClick={()=>handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,computedRows)} style={{...btn('primary'),gap:6}}>🖨️ 자금현황 인쇄</button>
+        <button onClick={()=>handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,acctFilter,acctNet,expectedCurr)} style={{...btn('primary'),gap:6}}>🖨️ 자금현황 인쇄</button>
       </div>
     </div>
   );
 }
 
-function handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,computedRows){
-  const fmt2=(n)=>Number(n||0).toLocaleString('ko-KR');
+function handleFinancePrint(monthLabel,accounts,acctKeys,totalPrev,totalCurr,ymData,acctFilter,acctNet,expectedCurr){
+  const fmt2=(n)=>Math.round(Number(n||0)).toLocaleString('ko-KR');
   const totalIncome=(ymData.rows||[]).reduce((s,r)=>s+(r.income||0),0);
   const totalExpense=(ymData.rows||[]).reduce((s,r)=>s+(r.expense||0),0);
-  const lastBalance=computedRows.length>0?computedRows.at(-1).balance:ymData.opening||0;
+  const totalExpectedCurr=totalPrev+totalIncome-totalExpense;
 
   const acctRows=acctKeys.map(k=>{
     const a=accounts[k];
-    const diff=(a.curr||0)-(a.prev||0);
+    const net=acctNet(k);
+    const exp=expectedCurr(k);
+    const delta=(a.curr||0)-exp;
     return `<tr>
       <td>${a.label}</td>
       <td class="num">${fmt2(a.prev)}</td>
       <td class="num"><strong>${fmt2(a.curr)}</strong></td>
-      <td class="num" style="color:${diff>=0?'#1d4ed8':'#dc2626'}">${diff>=0?'+':''}${fmt2(diff)}</td>
+      <td class="num" style="color:${net>=0?'#1d4ed8':'#dc2626'}">${net>=0?'+':''}${fmt2(net)}</td>
+      <td class="num">${fmt2(exp)}</td>
+      <td class="num" style="color:${delta===0?'#15803d':'#92400e'}">${delta===0?'✓ 일치':'⚠ '+fmt2(delta)}</td>
     </tr>`;
   }).join('');
 
-  const txnRows=computedRows.map((r,i)=>`<tr>
-    <td>${r.no||String(i+1).padStart(3,'0')}</td>
+  const filtered=acctFilter==='all'?(ymData.rows||[]):(ymData.rows||[]).filter(r=>r.acct===acctFilter);
+  const txnRows=filtered.map(r=>`<tr>
+    <td>${r.no||''}</td>
     <td>${r.date||''}</td>
+    <td>${accounts[r.acct]?.label||r.acct||''}</td>
     <td>${r.desc||''}</td>
     <td class="num" style="color:#1d4ed8">${r.income?fmt2(r.income):''}</td>
     <td class="num" style="color:#dc2626">${r.expense?fmt2(r.expense):''}</td>
-    <td class="num"><strong>${fmt2(r.balance)}</strong></td>
   </tr>`).join('');
 
   const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
@@ -2288,26 +2438,26 @@ tr:nth-child(even){background:#f8fafc;}
 @media print{body{padding:10px;}@page{margin:10mm;}}
 </style></head><body>
 <h1>태 림 전 자 공 업 주 식 회 사</h1>
-<div class="subtitle">${monthLabel} 자금 현황표</div>
+<div class="subtitle">${monthLabel} 자금 현황표${acctFilter!=='all'?` · ${accounts[acctFilter]?.label} 만`:''}</div>
 
 <div class="summary">
   <div class="card"><div class="card-label">총 잔고 (현재)</div><div class="card-value" style="color:#1e3a8a">${fmt2(totalCurr)}원</div></div>
   <div class="card"><div class="card-label">입금 합계</div><div class="card-value" style="color:#1d4ed8">${fmt2(totalIncome)}원</div></div>
   <div class="card"><div class="card-label">출금 합계</div><div class="card-value" style="color:#dc2626">${fmt2(totalExpense)}원</div></div>
-  <div class="card"><div class="card-label">최종 잔액</div><div class="card-value" style="color:#15803d">${fmt2(lastBalance)}원</div></div>
+  <div class="card"><div class="card-label">예상 잔고</div><div class="card-value" style="color:#15803d">${fmt2(totalExpectedCurr)}원</div></div>
 </div>
 
 <h2>예금 · 잔고 현황</h2>
 <table>
-  <thead><tr><th>계정</th><th class="num">전월 잔고</th><th class="num">현재 잔고</th><th class="num">증감</th></tr></thead>
+  <thead><tr><th>계정</th><th class="num">전월 잔고</th><th class="num">현재 잔고</th><th class="num">거래합계</th><th class="num">예상 잔고</th><th class="num">일치</th></tr></thead>
   <tbody>${acctRows}
-    <tr class="total-row"><td>합 계</td><td class="num">${fmt2(totalPrev)}</td><td class="num">${fmt2(totalCurr)}</td><td class="num">${(totalCurr-totalPrev)>=0?'+':''}${fmt2(totalCurr-totalPrev)}</td></tr>
+    <tr class="total-row"><td>합 계</td><td class="num">${fmt2(totalPrev)}</td><td class="num">${fmt2(totalCurr)}</td><td class="num">${(totalIncome-totalExpense)>=0?'+':''}${fmt2(totalIncome-totalExpense)}</td><td class="num">${fmt2(totalExpectedCurr)}</td><td></td></tr>
   </tbody>
 </table>
 
-<h2>입출금 내역</h2>
+<h2>입출금 내역${acctFilter!=='all'?` (${accounts[acctFilter]?.label})`:''}</h2>
 <table>
-  <thead><tr><th>No.</th><th>날짜</th><th>적요</th><th class="num">입금</th><th class="num">출금</th><th class="num">잔액</th></tr></thead>
+  <thead><tr><th>No.</th><th>날짜</th><th>계좌</th><th>적요</th><th class="num">입금</th><th class="num">출금</th></tr></thead>
   <tbody>${txnRows||'<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">내역 없음</td></tr>'}
   </tbody>
 </table>
@@ -3569,6 +3719,55 @@ function AttendancePage({ role }) {
 // ─── Approval Page (전자결재 + 긴급호출) ──────────────────────
 const ACCT_CODES = ['현금','보통예금(018)','보통예금(032)','MMF','외상매출금','미수금','선급금','임대보증금','임대수입','관리비수입','전기요금수익','수도요금수익','잡수입','전기요금','수도요금','수선비','경상비','통신비','소모품비','임차료','차량유지비','급여','복리후생비','접대비','세금과공과','감가상각비','잡비'];
 
+const VOUCHER_TYPES = {
+  income:   { title:'입 금 전 표', short:'입금전표', accent:'#DC2626', badge:'RECEIPT · 入金', badgeBg:'#FEE2E2', badgeFg:'#991B1B', titleColor:'#DC2626' },
+  expense:  { title:'출 금 전 표', short:'출금전표', accent:'#1D4ED8', badge:'PAYMENT · 出金', badgeBg:'#DBEAFE', badgeFg:'#1E3A8A', titleColor:'#1D4ED8' },
+  transfer: { title:'대 체 전 표', short:'대체전표', accent:'#111111', badge:'JOURNAL · 振替', badgeBg:'#F3F2EE', badgeFg:'#111111', titleColor:'#111111' },
+};
+
+const VOUCHER_CSS = `
+.vt { font-family:'Malgun Gothic','맑은 고딕',sans-serif; margin:0 0 1.2rem; }
+.vt .frame { background:#FFFFFF; border:1px solid #E8E6DF; border-radius:8px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.05); }
+.vt .accent { height:3px; }
+.vt .head { display:flex; padding:18px 22px; gap:20px; align-items:flex-start; border-bottom:1px solid #EFEDE6; flex-wrap:wrap; }
+.vt .h-left { flex:1; min-width:240px; }
+.vt .h-co { font-size:11px; color:#999; letter-spacing:2px; margin-bottom:8px; font-weight:500; }
+.vt .h-title-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.vt .h-title { font-size:21px; font-weight:500; letter-spacing:9px; color:#111; }
+.vt .h-badge { font-size:11px; padding:3px 8px; border-radius:3px; letter-spacing:1.5px; font-weight:500; }
+.vt .h-meta { display:flex; gap:20px; font-size:12.5px; color:#555; flex-wrap:wrap; align-items:center; }
+.vt .h-meta input.ed { font-family:inherit; font-size:12.5px; border:none; border-bottom:1px dotted #BBB; outline:none; padding:1px 5px; background:transparent; min-width:32px; color:#111; text-align:center; }
+.vt .h-meta input.ed:focus { background:#FFF8DD; border-bottom-color:#B89200; }
+.vt .h-meta input.ed-no { min-width:90px; text-align:left; }
+.vt .appr { display:flex; gap:5px; }
+.vt .appr-cell { width:60px; border:1px solid #E8E6DF; border-radius:4px; overflow:hidden; background:#fff; cursor:pointer; transition:background 0.15s; }
+.vt .appr-cell:hover { background:#FFFAEC; }
+.vt .appr-lbl { background:#FAFAF6; font-size:11px; text-align:center; padding:5px 0; border-bottom:1px solid #EFEDE6; font-weight:500; letter-spacing:1px; color:#666; }
+.vt .appr-st { height:46px; display:flex; align-items:center; justify-content:center; }
+.vt .stamp-mark { width:32px; height:32px; border:1.5px solid #C53030; color:#C53030; border-radius:50%; font-size:16px; font-weight:600; display:flex; align-items:center; justify-content:center; transform:rotate(-6deg); font-family:serif; }
+.vt table { border-collapse:collapse; width:100%; table-layout:fixed; }
+.vt th { background:#FBFAF6; font-size:11px; font-weight:500; text-align:center; padding:11px 4px; color:#777; letter-spacing:1.5px; border-bottom:1px solid #EFEDE6; }
+.vt td { padding:0; font-size:12.5px; color:#222; border-bottom:1px solid #F2F0EA; height:36px; vertical-align:middle; }
+.vt input.cell { width:100%; height:36px; padding:8px 10px; outline:none; border:none; background:transparent; font-family:inherit; font-size:12.5px; color:#222; box-sizing:border-box; }
+.vt input.cell:focus { background:#FFF8DD; }
+.vt td.num input.cell { text-align:right; font-variant-numeric:tabular-nums; color:#222; }
+.vt .vsep { border-right:1px solid #D5D2C9; }
+.vt .hsep { border-right:1px solid #EFEDE6; }
+.vt .sum td { background:#FAF9F4; font-weight:500; padding:13px 10px; border-bottom:none; border-top:1px solid #DDD9CF; color:#111; }
+.vt .sum .lbl-cell { letter-spacing:6px; text-align:center; color:#555; font-size:12.5px; }
+.vt .sum td.num { text-align:right; font-variant-numeric:tabular-nums; color:#111; font-weight:700; }
+.vt .footer-row { display:flex; justify-content:space-between; align-items:center; padding:11px 22px; border-top:1px dashed #DDD9CF; background:#FDFCF8; font-size:11.5px; }
+.vt .add-btn-link { cursor:pointer; color:#666; font-weight:500; letter-spacing:1px; user-select:none; background:transparent; border:none; padding:4px 10px; font-family:inherit; font-size:11.5px; border-radius:4px; }
+.vt .add-btn-link:hover { color:#111; background:rgba(0,0,0,0.04); }
+.vt .balance { color:#999; font-size:11.5px; }
+.vt .balance.ok { color:#15803D; font-weight:600; }
+.vt .balance.bad { color:#C53030; font-weight:600; }
+.vt .ft { padding:11px 22px 14px; display:flex; justify-content:space-between; font-size:11px; color:#888; letter-spacing:1px; flex-wrap:wrap; gap:8px; border-top:1px dashed #DDD9CF; background:#FDFCF8; }
+.vt .del-row { background:transparent; border:none; cursor:pointer; color:#ddd; font-size:14px; padding:0 6px; line-height:1; }
+.vt .del-row:hover { color:#C53030; }
+.vt-type-btn { flex:1; min-width:120px; height:42px; font-size:13px; font-family:inherit; cursor:pointer; border-radius:6px; font-weight:600; letter-spacing:1.5px; transition:all 0.15s; }
+`;
+
 function ApprovalPage({ role }) {
   const [items,setItems]=useState(()=>store.get('tl_approvals')||[]);
   const [tab,setTab]=useState(role==='admin'?'pending':'submit');
@@ -3851,32 +4050,58 @@ function VoucherPage({ role }) {
   const [vouchers,setVouchers]=useState([]);
   const [loading,setLoading]=useState(true);
   const [tab,setTab]=useState('write');
-  const [vType,setVType]=useState('transfer');
-  const [form,setForm]=useState({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
+  const [vType,setVType]=useState('income');
+  const [form,setForm]=useState(()=>emptyVoucherForm('income'));
+  const [editId,setEditId]=useState(null);
   const [filter,setFilter]=useState({type:'all',month:''});
   const [flash,setFlash]=useState('');
-  const [imgModal,setImgModal]=useState(null);
-  const fileRef=useRef(null);
   const authorName=store.get('tl_user_name')||role;
+
+  useEffect(()=>{
+    if(document.getElementById('tl-voucher-css')) return;
+    const style=document.createElement('style');
+    style.id='tl-voucher-css';
+    style.textContent=VOUCHER_CSS;
+    document.head.appendChild(style);
+  },[]);
 
   const msg=(t)=>{ setFlash(t); setTimeout(()=>setFlash(''),3000); };
 
-  const vToDb=(v)=>({
-    id:v.id, vno:v.vno, type:v.type, date:v.date, amount:v.amount,
-    note:v.note||'', debit_acct:v.debitAcct||'', credit_acct:v.creditAcct||'',
-    account:v.account||'', payee:v.payee||'',
-    file_url:v.fileUrl||null, file_name:v.fileName||null,
-    author:v.author||'', created_at:v.createdAt||'',
-    status:v.status||'draft', approvals:v.approvals||{},
-  });
-  const dbToV=(r)=>({
-    id:r.id, vno:r.vno, type:r.type, date:r.date, amount:r.amount,
-    note:r.note, debitAcct:r.debit_acct, creditAcct:r.credit_acct,
-    account:r.account, payee:r.payee,
-    fileUrl:r.file_url, fileName:r.file_name,
-    author:r.author, createdAt:r.created_at,
-    status:r.status, approvals:r.approvals||{},
-  });
+  // DB ↔ 폼 변환 (rows를 note 필드에 JSON으로 직렬화)
+  const vToDb=(v)=>{
+    const total=computeTotal(v.rows,v.type);
+    return {
+      id:v.id, vno:v.vno, type:v.type, date:v.date,
+      amount:total,
+      note:JSON.stringify({rows:v.rows,summary:v.summary||''}),
+      debit_acct:'', credit_acct:'', account:'', payee:'',
+      file_url:null, file_name:null,
+      author:v.author||'', created_at:v.createdAt||'',
+      status:v.status||'draft', approvals:v.approvals||{},
+    };
+  };
+  const dbToV=(r)=>{
+    let rows=null, summary='';
+    if(r.note){
+      try{
+        const p=JSON.parse(r.note);
+        if(p&&Array.isArray(p.rows)){ rows=p.rows; summary=p.summary||''; }
+      }catch{/* 레거시 텍스트 note */}
+    }
+    if(!rows){
+      // 레거시(단일행) 자동 변환
+      if(r.type==='transfer'){
+        rows=[{dr_acct:r.debit_acct||'',dr_note:r.note||'',dr_amt:r.amount||0,cr_acct:r.credit_acct||'',cr_note:'',cr_amt:r.amount||0}];
+      } else {
+        rows=[{acct:r.account||'',payee:r.payee||'',note:r.note||'',amount:r.amount||0}];
+      }
+    }
+    // 결재 키 마이그레이션
+    const keyMap={'이사':'담당','부사장':'검토','대표':'확인'};
+    const apr={};
+    Object.entries(r.approvals||{}).forEach(([k,vv])=>{ apr[keyMap[k]||k]=vv; });
+    return { id:r.id, vno:r.vno, type:r.type, date:r.date, rows, summary, author:r.author, createdAt:r.created_at, status:r.status, approvals:apr };
+  };
 
   useEffect(()=>{
     const load=async()=>{
@@ -3889,70 +4114,63 @@ function VoucherPage({ role }) {
     load();
   },[]);
 
-  const saveV=async(v)=>{
-    const{error}=await supabase.from('vouchers').upsert(vToDb(v));
-    if(error){ msg('⚠ 저장 실패: '+error.message); return false; }
-    setVouchers(prev=>{ const idx=prev.findIndex(x=>x.id===v.id); return idx>=0?prev.map(x=>x.id===v.id?v:x):[v,...prev]; });
-    return true;
-  };
-
-  const handleFile=async(e)=>{
-    const file=e.target.files[0]; if(!file) return;
-    const dataUrl=await compressImage(file);
-    if(!dataUrl) return;
-    setForm(f=>({...f,file:file.name,fileUrl:dataUrl}));
-  };
-
   const getVNo=(type)=>{
-    const prefix=type==='transfer'?'분':'income'?'입':'출';
-    const count=vouchers.filter(v=>v.type===type).length+1;
+    const prefix=type==='income'?'입':type==='expense'?'출':'분';
     const yy=new Date().getFullYear()%100;
+    const count=vouchers.filter(v=>v.type===type).length+1;
     return `${prefix}-${yy}${String(count).padStart(3,'0')}`;
   };
 
+  const newForm=(type)=>{ setVType(type); setForm({...emptyVoucherForm(type),vno:getVNo(type)}); setEditId(null); };
+
+  useEffect(()=>{
+    if(!loading&&!form.vno){ setForm(f=>({...f,vno:getVNo(vType)})); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[loading]);
+
+  const updateRow=(i,field,val)=>setForm(f=>({...f,rows:f.rows.map((r,idx)=>idx===i?{...r,[field]:val}:r)}));
+  const addRow=()=>setForm(f=>({...f,rows:[...f.rows,vType==='transfer'?emptyJournalRow():emptyRow()]}));
+  const delRow=(i)=>setForm(f=>({...f,rows:f.rows.length>1?f.rows.filter((_,idx)=>idx!==i):f.rows}));
+  const toggleStamp=(slot)=>setForm(f=>{
+    const apr={...f.approvals};
+    if(apr[slot]) delete apr[slot];
+    else apr[slot]={name:authorName,at:new Date().toISOString()};
+    return {...f,approvals:apr};
+  });
+
   const submitVoucher=async()=>{
-    const amt=Number(String(form.amount).replace(/,/g,''));
-    if(!amt||amt<=0){ msg('⚠ 금액을 입력하세요.'); return; }
-    if(vType==='transfer'&&(!form.debitAcct||!form.creditAcct)){ msg('⚠ 차변·대변 계정과목을 선택하세요.'); return; }
-    if(vType!=='transfer'&&!form.account){ msg('⚠ 계정과목을 선택하세요.'); return; }
+    const total=computeTotal(form.rows,vType);
+    if(total<=0){ msg('⚠ 금액을 입력하세요.'); return; }
+    if(vType==='transfer'){
+      const{dr,cr}=computeJournalTotals(form.rows);
+      if(dr!==cr){ if(!window.confirm(`차변(${fmt(dr)})·대변(${fmt(cr)}) 합계가 다릅니다.\n그래도 저장하시겠습니까?`)) return; }
+    }
     const v={
-      id:Date.now(), vno:getVNo(vType), type:vType,
-      date:form.date, amount:amt, note:form.note,
-      debitAcct:form.debitAcct, creditAcct:form.creditAcct,
-      account:form.account, payee:form.payee,
-      fileUrl:form.fileUrl, fileName:form.file,
-      author:authorName, createdAt:new Date().toISOString(),
-      status:'draft', approvals:{},
+      id:editId||Date.now(),
+      vno:form.vno||getVNo(vType),
+      type:vType, date:form.date,
+      rows:form.rows.filter(rowHasContent), summary:form.summary,
+      author:editId?(form.author||authorName):authorName,
+      createdAt:editId?(form.createdAt||new Date().toISOString()):new Date().toISOString(),
+      status:'draft', approvals:form.approvals||{},
     };
-    const ok=await saveV(v);
-    if(!ok) return;
-    setForm({date:new Date().toISOString().split('T')[0],debitAcct:'',creditAcct:'',account:'',amount:'',note:'',payee:'',file:null,fileUrl:null});
-    msg('✓ 전표가 저장됐습니다.');
+    if(v.rows.length===0){ msg('⚠ 입력된 행이 없습니다.'); return; }
+    const{error}=await supabase.from('vouchers').upsert(vToDb(v));
+    if(error){ msg('⚠ 저장 실패: '+error.message); return; }
+    setVouchers(prev=>{ const idx=prev.findIndex(x=>x.id===v.id); return idx>=0?prev.map(x=>x.id===v.id?v:x):[v,...prev]; });
+    msg(editId?'✓ 전표가 수정됐습니다.':'✓ 전표가 저장됐습니다.');
+    newForm(vType);
     setTab('list');
   };
 
-  const APPROVER_SLOTS=[
-    {key:'이사',   label:'이  사',   roleReq:'master', name:'박장혁 이사'},
-    {key:'부사장', label:'부 사 장', roleReq:'staff',  name:'부사장'},
-    {key:'대표',   label:'대  표',   roleReq:'admin',  name:'대표이사'},
-  ];
-  const mySlot=APPROVER_SLOTS.find(s=>s.roleReq===role);
-  const isLocked=(v)=>v.approvals&&Object.values(v.approvals).some(a=>a);
-  const fmtAt=(iso)=>{ if(!iso) return ''; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
-
-  const handleApprove=async(id)=>{
-    if(!mySlot){ alert('결재 권한이 없습니다.'); return; }
-    const v=vouchers.find(vv=>vv.id===id); if(!v) return;
-    if(v.approvals?.[mySlot.key]){ alert('이미 결재하셨습니다.'); return; }
-    if(!window.confirm(`[${mySlot.name}] 결재하시겠습니까?\n\n결재 후에는 전표 수정 및 삭제가 불가합니다.`)) return;
-    const updated={...v, approvals:{...(v.approvals||{}),[mySlot.key]:{name:mySlot.name,at:new Date().toISOString()}}, status:'approved'};
-    const ok=await saveV(updated);
-    if(ok) msg(`✓ ${mySlot.name} 결재 완료`);
+  const editVoucher=(v)=>{
+    setVType(v.type);
+    setForm({date:v.date,vno:v.vno,rows:v.rows.length?v.rows:(v.type==='transfer'?[emptyJournalRow()]:[emptyRow()]),summary:v.summary||'',approvals:v.approvals||{},author:v.author,createdAt:v.createdAt});
+    setEditId(v.id);
+    setTab('write');
   };
 
   const deleteV=async(id)=>{
-    const v=vouchers.find(vv=>vv.id===id);
-    if(isLocked(v)){ alert('결재된 전표는 삭제할 수 없습니다.'); return; }
     if(!window.confirm('삭제하시겠습니까?')) return;
     const{error}=await supabase.from('vouchers').delete().eq('id',id);
     if(error){ msg('⚠ 삭제 실패: '+error.message); return; }
@@ -3960,221 +4178,322 @@ function VoucherPage({ role }) {
   };
 
   const handlePrint=(v)=>{
-    const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
-    const sigCells=APPROVER_SLOTS.map(s=>{
-      const ap=v.approvals?.[s.key];
-      return `<div class="sig-cell">
-        <div class="sig-label">${s.label}</div>
-        ${ap?`<div class="sig-name">${ap.name}</div><div class="sig-date">${fmtAt(ap.at)}</div>`:'<div style="min-height:32px;"></div>'}
-      </div>`;
-    }).join('');
-    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>
-*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;font-size:12px;color:#111;}
-.page{max-width:650px;margin:16px auto;}
-.hdr{background:#312e81;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;border-radius:6px 6px 0 0;}
-.box{border:1.5px solid #000;border-top:none;padding:14px 18px;}
-.row{display:flex;gap:16px;margin-bottom:10px;}
-.field{flex:1;}.field-label{font-size:10px;color:#555;margin-bottom:2px;}.field-val{font-size:13px;font-weight:600;border-bottom:1px solid #aaa;padding-bottom:3px;}
-.amount{font-size:22px;font-weight:900;text-align:right;border:2px solid #000;padding:10px 16px;margin:12px 0;letter-spacing:1px;}
-.note{border:1px solid #aaa;padding:10px;min-height:50px;margin-bottom:10px;font-size:13px;}
-.sig{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border:1px solid #000;margin-top:14px;}
-.sig-cell{border-right:1px solid #000;padding:7px 10px;min-height:54px;}.sig-cell:last-child{border-right:none;}
-.sig-label{font-size:10px;color:#555;font-weight:700;margin-bottom:4px;}
-.sig-name{font-size:11px;font-weight:700;color:#111;}
-.sig-date{font-size:9px;color:#666;margin-top:2px;}
-.footer{font-size:10px;color:#999;text-align:center;margin-top:8px;border-top:1px solid #eee;padding-top:6px;}
-@media print{@page{margin:12mm;}}
+    const meta=VOUCHER_TYPES[v.type]||VOUCHER_TYPES.income;
+    const total=computeTotal(v.rows,v.type);
+    const{dr,cr}=v.type==='transfer'?computeJournalTotals(v.rows):{dr:0,cr:0};
+    const stampHtml=(slot)=>{
+      const ap=v.approvals?.[slot];
+      return `<div class="appr-cell"><div class="appr-lbl">${slot}</div><div class="appr-st">${ap?'<span class="stamp-mark">印</span>':''}</div></div>`;
+    };
+    const tableHtml=v.type==='transfer'?
+      `<table>
+        <colgroup><col style="width:14%"><col><col style="width:16%"><col style="width:14%"><col><col style="width:16%"></colgroup>
+        <thead><tr>
+          <th class="hsep">차변과목</th><th class="hsep">적　요</th><th class="vsep">차 변 금 액</th>
+          <th class="hsep">대변과목</th><th class="hsep">적　요</th><th>대 변 금 액</th>
+        </tr></thead>
+        <tbody>
+          ${v.rows.map(r=>`<tr>
+            <td class="hsep"><span class="cell">${esc(r.dr_acct)}</span></td>
+            <td class="hsep"><span class="cell">${esc(r.dr_note)}</span></td>
+            <td class="num vsep"><span class="cell">${r.dr_amt?fmtN(r.dr_amt):''}</span></td>
+            <td class="hsep"><span class="cell">${esc(r.cr_acct)}</span></td>
+            <td class="hsep"><span class="cell">${esc(r.cr_note)}</span></td>
+            <td class="num"><span class="cell">${r.cr_amt?fmtN(r.cr_amt):''}</span></td>
+          </tr>`).join('')}
+          <tr class="sum"><td colspan="2" class="lbl-cell hsep">차변 합계</td><td class="num vsep">${fmtN(dr)}</td><td colspan="2" class="lbl-cell hsep">대변 합계</td><td class="num">${fmtN(cr)}</td></tr>
+        </tbody>
+      </table>`
+      :`<table>
+        <colgroup><col style="width:18%"><col style="width:18%"><col><col style="width:18%"></colgroup>
+        <thead><tr>
+          <th class="hsep">계정과목</th><th class="hsep">거래처</th><th class="hsep">적　　　요</th><th>금　　　액</th>
+        </tr></thead>
+        <tbody>
+          ${v.rows.map(r=>`<tr>
+            <td class="hsep"><span class="cell">${esc(r.acct)}</span></td>
+            <td class="hsep"><span class="cell">${esc(r.payee)}</span></td>
+            <td class="hsep"><span class="cell">${esc(r.note)}</span></td>
+            <td class="num"><span class="cell">${r.amount?fmtN(r.amount):''}</span></td>
+          </tr>`).join('')}
+          <tr class="sum"><td colspan="3" class="lbl-cell hsep">합　계</td><td class="num">${fmtN(total)}</td></tr>
+        </tbody>
+      </table>`;
+    const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>${meta.short} ${v.vno||''}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:20px;background:#fff;}
+.vt{margin:0 auto;max-width:780px;}
+.vt .frame{background:#fff;border:1px solid #E8E6DF;border-radius:8px;overflow:hidden;}
+.vt .accent{height:3px;background:${meta.accent};}
+.vt .head{display:flex;padding:18px 22px;gap:20px;align-items:flex-start;border-bottom:1px solid #EFEDE6;}
+.vt .h-left{flex:1;min-width:0;}
+.vt .h-co{font-size:11px;color:#999;letter-spacing:2px;margin-bottom:8px;font-weight:500;}
+.vt .h-title-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.vt .h-title{font-size:21px;font-weight:500;letter-spacing:9px;color:${meta.titleColor};}
+.vt .h-badge{font-size:11px;padding:3px 8px;border-radius:3px;letter-spacing:1.5px;font-weight:500;background:${meta.badgeBg};color:${meta.badgeFg};}
+.vt .h-meta{display:flex;gap:20px;font-size:12.5px;color:#555;flex-wrap:wrap;}
+.vt .appr{display:flex;gap:5px;}
+.vt .appr-cell{width:60px;border:1px solid #E8E6DF;border-radius:4px;overflow:hidden;background:#fff;}
+.vt .appr-lbl{background:#FAFAF6;font-size:11px;text-align:center;padding:5px 0;border-bottom:1px solid #EFEDE6;font-weight:500;letter-spacing:1px;color:#666;}
+.vt .appr-st{height:46px;display:flex;align-items:center;justify-content:center;}
+.vt .stamp-mark{width:32px;height:32px;border:1.5px solid #C53030;color:#C53030;border-radius:50%;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;transform:rotate(-6deg);font-family:serif;}
+.vt table{border-collapse:collapse;width:100%;table-layout:fixed;}
+.vt th{background:#FBFAF6;font-size:11px;font-weight:500;text-align:center;padding:11px 4px;color:#777;letter-spacing:1.5px;border-bottom:1px solid #EFEDE6;}
+.vt td{padding:0;font-size:12.5px;color:#222;border-bottom:1px solid #F2F0EA;height:36px;vertical-align:middle;}
+.vt .cell{display:block;padding:8px 10px;min-height:36px;box-sizing:border-box;}
+.vt td.num .cell{text-align:right;font-variant-numeric:tabular-nums;color:#222;}
+.vt .vsep{border-right:1px solid #D5D2C9;}
+.vt .hsep{border-right:1px solid #EFEDE6;}
+.vt .sum td{background:#FAF9F4;font-weight:600;padding:13px 10px;border-bottom:none;border-top:1px solid #DDD9CF;color:#111;}
+.vt .sum .lbl-cell{letter-spacing:6px;text-align:center;color:#555;}
+.vt .sum td.num{text-align:right;font-variant-numeric:tabular-nums;color:#111;font-weight:700;}
+.vt .ft{padding:11px 22px 14px;display:flex;justify-content:space-between;font-size:11px;color:#888;letter-spacing:1px;border-top:1px dashed #DDD9CF;background:#FDFCF8;}
+.warn{padding:9px 22px;background:#FEF3C7;color:#92400E;font-size:12px;text-align:center;border-bottom:1px solid #FDE68A;font-weight:600;}
+@media print{@page{margin:14mm;}body{padding:0;}}
 </style></head><body>
-<div class="page">
-  <div class="hdr">
-    <div style="font-size:14px;font-weight:700;letter-spacing:2px;">태림전자공업㈜</div>
-    <div style="font-size:20px;font-weight:900;letter-spacing:5px;">${typeLabel[v.type]||'전표'}</div>
-    <div style="text-align:right;font-size:11px;opacity:0.8;">전표번호: ${v.vno}</div>
+<div class="vt"><div class="frame">
+  <div class="accent"></div>
+  <div class="head">
+    <div class="h-left">
+      <div class="h-co">㈜ TAELIM ELECTRONICS</div>
+      <div class="h-title-row">
+        <div class="h-title">${meta.title}</div>
+        <span class="h-badge">${meta.badge}</span>
+      </div>
+      <div class="h-meta">
+        <span>${formatKDate(v.date)}</span>
+        <span>No. ${v.vno||''}</span>
+      </div>
+    </div>
+    <div class="appr">${stampHtml('담당')}${stampHtml('검토')}${stampHtml('확인')}</div>
   </div>
-  <div class="box">
-    <div class="row">
-      <div class="field"><div class="field-label">작성일자</div><div class="field-val">${v.date}</div></div>
-      <div class="field"><div class="field-label">작성자</div><div class="field-val">${v.author}</div></div>
-      <div class="field"><div class="field-label">전표번호</div><div class="field-val">${v.vno}</div></div>
-    </div>
-    ${v.type==='transfer'?`<div class="row">
-      <div class="field"><div class="field-label">차변 (Debit)</div><div class="field-val">${v.debitAcct}</div></div>
-      <div class="field"><div class="field-label">대변 (Credit)</div><div class="field-val">${v.creditAcct}</div></div>
-    </div>`:`<div class="row">
-      <div class="field"><div class="field-label">계정과목</div><div class="field-val">${v.account}</div></div>
-      <div class="field"><div class="field-label">${v.type==='income'?'입금처':'지출처'}</div><div class="field-val">${v.payee||'—'}</div></div>
-    </div>`}
-    <div class="amount" style="border-color:${v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111'};color:${v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111'};">
-      ₩ ${Number(v.amount).toLocaleString('ko-KR')} 원
-    </div>
-    <div style="font-size:10px;color:#555;margin-bottom:3px;font-weight:700;">적요 (내용)</div>
-    <div class="note">${v.note||'(없음)'}</div>
-    ${v.payee?`<div style="font-size:11px;color:#555;margin-bottom:6px;"><b>${v.type==='income'?'입금처':'지출처'}:</b> ${v.payee}</div>`:''}
-    ${v.fileName?`<div style="font-size:11px;color:#555;"><b>첨부:</b> ${v.fileName}</div>`:''}
-    <div class="sig">
-      <div class="sig-cell"><div class="sig-label">작  성</div><div class="sig-name">${v.author||''}</div><div class="sig-date">${v.createdAt?fmtAt(v.createdAt):''}</div></div>
-      ${sigCells}
-    </div>
-  </div>
-  <div class="footer">태림전자공업㈜ · ${CO_ADDR} · Tel: ${CO_TEL} · © ${new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.</div>
-</div>
+  ${v.type==='transfer'&&dr!==cr?`<div class="warn">⚠ 차변·대변 불일치 — 차이 ${fmtN(Math.abs(dr-cr))}원</div>`:''}
+  ${tableHtml}
+  <div class="ft"><span>${CO_ADDR}</span><span>Tel ${CO_TEL}　·　Fax ${CO_FAX}</span></div>
+</div></div>
 <script>window.onload=()=>window.print();</script>
 </body></html>`;
     const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const w=window.open(url,'_blank');
-    if(!w){ alert('팝업이 차단됐습니다. 팝업 허용 후 다시 시도하세요.'); return; }
+    if(!w){ alert('팝업이 차단됐습니다.'); return; }
     setTimeout(()=>URL.revokeObjectURL(url),60000);
   };
+
+  // 폼 헤더의 날짜 분해
+  const dp=(()=>{ const [y,m,d]=(form.date||'').split('-'); return {y:y||'',m:m||'',d:d||''}; })();
+  const setDatePart=(part,val)=>{
+    const next={...dp,[part]:val};
+    setForm(f=>({...f,date:`${next.y}-${String(next.m||'').padStart(2,'0')}-${String(next.d||'').padStart(2,'0')}`}));
+  };
+
+  const meta=VOUCHER_TYPES[vType];
+  const totals=(()=>{
+    if(vType==='transfer'){
+      const{dr,cr}=computeJournalTotals(form.rows);
+      if(dr===0&&cr===0) return {balanceClass:'',balanceText:''};
+      if(dr===cr) return {balanceClass:'ok',balanceText:`✓ 차대변 일치 · 합계 ${fmt(dr)}원`};
+      return {balanceClass:'bad',balanceText:`⚠ 차이 ${fmt(Math.abs(dr-cr))}원`};
+    }
+    const t=computeTotal(form.rows,vType);
+    return {balanceClass:'',balanceText:t?`합계 ${fmt(t)}원`:''};
+  })();
 
   const displayV=vouchers.filter(v=>{
     if(filter.type!=='all'&&v.type!==filter.type) return false;
     if(filter.month&&!v.date.startsWith(filter.month)) return false;
     return true;
   });
-  const typeLabel={'transfer':'대체전표','income':'입금전표','expense':'출금전표'};
-  const typeBadge={'transfer':{bg:'#f5f5f5',c:'#1a1a1a',b:'#ddd'},'income':{bg:C.redBg,c:C.red,b:C.redBorder},'expense':{bg:C.blueBg,c:C.blue,b:C.blueBorder}};
-  const totalIncome=displayV.filter(v=>v.type==='income').reduce((s,v)=>s+v.amount,0);
-  const totalExpense=displayV.filter(v=>v.type==='expense').reduce((s,v)=>s+v.amount,0);
-
-  const acctSelect=(field,label)=>(
-    <div>
-      <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>{label}</div>
-      <select value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
-        style={{ ...baseInput, background:C.white, cursor:'pointer' }}>
-        <option value="">-- 선택 --</option>
-        {ACCT_CODES.map(a=><option key={a} value={a}>{a}</option>)}
-      </select>
-    </div>
-  );
+  const totalIncome=displayV.filter(v=>v.type==='income').reduce((s,v)=>s+computeTotal(v.rows,'income'),0);
+  const totalExpense=displayV.filter(v=>v.type==='expense').reduce((s,v)=>s+computeTotal(v.rows,'expense'),0);
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
-        <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>전표 관리 {loading&&<span style={{fontSize:12,color:C.textHint,fontWeight:400}}>로딩 중...</span>}</span>
-        <div style={{ display:'flex', gap:6 }}>
-          <button onClick={()=>setTab('write')} style={{ ...btn(tab==='write'?'primary':'secondary'), height:34 }}>✏ 전표 작성</button>
-          <button onClick={()=>setTab('list')} style={{ ...btn(tab==='list'?'primary':'secondary'), height:34 }}>📋 전표 목록 ({vouchers.length})</button>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:8}}>
+        <span style={{fontSize:15,fontWeight:700,color:C.navyDark}}>전표 관리 {loading&&<span style={{fontSize:12,color:C.textHint,fontWeight:400}}>로딩 중...</span>}</span>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>setTab('write')} style={{...btn(tab==='write'?'primary':'secondary'),height:34}}>✏ 전표 작성</button>
+          <button onClick={()=>setTab('list')} style={{...btn(tab==='list'?'primary':'secondary'),height:34}}>📋 전표 목록 ({vouchers.length})</button>
         </div>
       </div>
 
-      {tab==='write' && (
-        <div style={CARD}>
-          <SecHead icon="📄" title="전표 작성" />
-          {/* 전표 종류 */}
-          <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
-            {[['transfer','⇄ 대체전표'],['income','↓ 입금전표'],['expense','↑ 출금전표']].map(([v,l])=>(
-              <button key={v} onClick={()=>setVType(v)} style={{ ...btn(vType===v?'active':'secondary'), flex:1, minWidth:100, height:40, fontSize:13 }}>{l}</button>
+      {tab==='write'&&(
+        <>
+          <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+            {Object.entries(VOUCHER_TYPES).map(([key,m])=>(
+              <button key={key} type="button" onClick={()=>{
+                if(vType===key) return;
+                if(form.rows.some(rowHasContent)&&!editId){
+                  if(!window.confirm('작성 중인 내용이 사라집니다. 전표 종류를 변경할까요?')) return;
+                }
+                newForm(key);
+              }} className="vt-type-btn" style={{
+                border:`1.5px solid ${vType===key?m.accent:'#E8E6DF'}`,
+                background:vType===key?m.accent:'#fff',
+                color:vType===key?'#fff':m.titleColor,
+              }}>{m.short}</button>
             ))}
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
-            <div>
-              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>날짜</div>
-              <input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{ ...baseInput, background:C.white }} />
-            </div>
-            <div>
-              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>금액 (원)</div>
-              <input type="number" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} placeholder="0" style={{ ...baseInput, background:C.white, textAlign:'right', fontVariantNumeric:'tabular-nums', fontSize:15, fontWeight:700 }} />
-            </div>
-          </div>
+          <div className="vt">
+            <div className="frame">
+              <div className="accent" style={{background:meta.accent}}></div>
+              <div className="head">
+                <div className="h-left">
+                  <div className="h-co">㈜ TAELIM ELECTRONICS</div>
+                  <div className="h-title-row">
+                    <div className="h-title" style={{color:meta.titleColor}}>{meta.title}</div>
+                    <span className="h-badge" style={{background:meta.badgeBg,color:meta.badgeFg}}>{meta.badge}</span>
+                  </div>
+                  <div className="h-meta">
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4}}>
+                      <input type="number" className="ed" value={dp.y} onChange={e=>setDatePart('y',e.target.value)} style={{width:50}}/> 년
+                      <input type="number" className="ed" value={dp.m} onChange={e=>setDatePart('m',e.target.value)} style={{width:34}}/> 월
+                      <input type="number" className="ed" value={dp.d} onChange={e=>setDatePart('d',e.target.value)} style={{width:34}}/> 일
+                    </span>
+                    <span style={{display:'inline-flex',alignItems:'center',gap:4}}>No. <input className="ed ed-no" value={form.vno} onChange={e=>setForm(f=>({...f,vno:e.target.value}))} placeholder="자동"/></span>
+                  </div>
+                </div>
+                <div className="appr">
+                  {['담당','검토','확인'].map(slot=>(
+                    <div key={slot} className="appr-cell" onClick={()=>toggleStamp(slot)} title={form.approvals[slot]?`${form.approvals[slot].name||''} · ${fmtAt(form.approvals[slot].at)}`:'클릭하여 도장 / 재클릭 해제'}>
+                      <div className="appr-lbl">{slot}</div>
+                      <div className="appr-st">{form.approvals[slot]&&<span className="stamp-mark">印</span>}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {vType==='transfer' ? (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
-              {acctSelect('debitAcct','차변 계정과목 (Debit ↑)')}
-              {acctSelect('creditAcct','대변 계정과목 (Credit ↓)')}
-            </div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
-              {acctSelect('account','계정과목')}
-              <div>
-                <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>{vType==='income'?'입금처':'지출처'}</div>
-                <input value={form.payee} onChange={e=>setForm(f=>({...f,payee:e.target.value}))} placeholder={vType==='income'?'예) 한국웨지우드마케팅㈜':'예) 한국전력공사'} style={{ ...baseInput, background:C.white }} />
+              {vType==='transfer'?(
+                <table>
+                  <colgroup><col style={{width:'14%'}}/><col/><col style={{width:'16%'}}/><col style={{width:'14%'}}/><col/><col style={{width:'16%'}}/></colgroup>
+                  <thead><tr>
+                    <th className="hsep">차변과목</th><th className="hsep">적　요</th><th className="vsep">차 변 금 액</th>
+                    <th className="hsep">대변과목</th><th className="hsep">적　요</th><th>대 변 금 액</th>
+                  </tr></thead>
+                  <tbody>
+                    {form.rows.map((r,i)=>(
+                      <tr key={i}>
+                        <td className="hsep"><input className="cell" list="acct-list" value={r.dr_acct||''} onChange={e=>updateRow(i,'dr_acct',e.target.value)}/></td>
+                        <td className="hsep"><input className="cell" value={r.dr_note||''} onChange={e=>updateRow(i,'dr_note',e.target.value)}/></td>
+                        <td className="num vsep"><AmountInput value={r.dr_amt} onChange={v=>updateRow(i,'dr_amt',v)}/></td>
+                        <td className="hsep"><input className="cell" list="acct-list" value={r.cr_acct||''} onChange={e=>updateRow(i,'cr_acct',e.target.value)}/></td>
+                        <td className="hsep"><input className="cell" value={r.cr_note||''} onChange={e=>updateRow(i,'cr_note',e.target.value)}/></td>
+                        <td className="num" style={{position:'relative'}}>
+                          <AmountInput value={r.cr_amt} onChange={v=>updateRow(i,'cr_amt',v)}/>
+                          {form.rows.length>1&&<button type="button" className="del-row" onClick={()=>delRow(i)} style={{position:'absolute',right:0,top:'50%',transform:'translateY(-50%)'}}>×</button>}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="sum">
+                      <td colSpan={2} className="lbl-cell hsep">차변 합계</td>
+                      <td className="num vsep">{(()=>{const{dr}=computeJournalTotals(form.rows);return dr?fmt(dr):'';})()}</td>
+                      <td colSpan={2} className="lbl-cell hsep">대변 합계</td>
+                      <td className="num">{(()=>{const{cr}=computeJournalTotals(form.rows);return cr?fmt(cr):'';})()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              ):(
+                <table>
+                  <colgroup><col style={{width:'18%'}}/><col style={{width:'18%'}}/><col/><col style={{width:'18%'}}/></colgroup>
+                  <thead><tr>
+                    <th className="hsep">계정과목</th><th className="hsep">거래처</th><th className="hsep">적　　　요</th><th>금　　　액</th>
+                  </tr></thead>
+                  <tbody>
+                    {form.rows.map((r,i)=>(
+                      <tr key={i}>
+                        <td className="hsep"><input className="cell" list="acct-list" value={r.acct||''} onChange={e=>updateRow(i,'acct',e.target.value)}/></td>
+                        <td className="hsep"><input className="cell" value={r.payee||''} onChange={e=>updateRow(i,'payee',e.target.value)}/></td>
+                        <td className="hsep"><input className="cell" value={r.note||''} onChange={e=>updateRow(i,'note',e.target.value)}/></td>
+                        <td className="num" style={{position:'relative'}}>
+                          <AmountInput value={r.amount} onChange={v=>updateRow(i,'amount',v)}/>
+                          {form.rows.length>1&&<button type="button" className="del-row" onClick={()=>delRow(i)} style={{position:'absolute',right:0,top:'50%',transform:'translateY(-50%)'}}>×</button>}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="sum">
+                      <td colSpan={3} className="lbl-cell hsep">합　계</td>
+                      <td className="num">{(()=>{const t=computeTotal(form.rows,vType);return t?fmt(t):'';})()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+
+              <div className="footer-row">
+                <button type="button" className="add-btn-link" onClick={addRow}>＋ 행 추가</button>
+                <span className={`balance ${totals.balanceClass}`}>{totals.balanceText}</span>
+              </div>
+              <div className="ft">
+                <span>{CO_ADDR}</span>
+                <span>Tel {CO_TEL}　·　Fax {CO_FAX}</span>
               </div>
             </div>
-          )}
-
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>적요 (내용)</div>
-            <textarea value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} rows={3} placeholder="거래 내용, 메모 등" style={{ ...baseInput, background:C.white, resize:'vertical', lineHeight:1.8 }} />
           </div>
 
-          {/* 영수증 첨부 */}
-          <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:6 }}>영수증 첨부 (선택)</div>
-            <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleFile} />
-            {form.fileUrl ? (
-              <div style={{ position:'relative', display:'inline-block' }}>
-                <img src={form.fileUrl} alt="영수증" style={{ height:90, borderRadius:8, border:`1px solid ${C.border}`, cursor:'pointer', objectFit:'cover' }} onClick={()=>setImgModal(form.fileUrl)} />
-                <button onClick={()=>setForm(f=>({...f,file:null,fileUrl:null}))} style={{ position:'absolute', top:4, right:4, background:'rgba(0,0,0,0.55)', border:'none', color:'#fff', borderRadius:'50%', width:20, height:20, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
-              </div>
-            ) : (
-              <button onClick={()=>{ fileRef.current.value=''; fileRef.current.click(); }} style={{ ...btn('secondary'), height:40 }}>📎 사진 첨부</button>
-            )}
-          </div>
+          <datalist id="acct-list">
+            {ACCT_CODES.map(a=><option key={a} value={a}/>)}
+          </datalist>
 
-          {flash && <div style={{ background:flash.startsWith('⚠')?C.redBg:C.greenBg, border:`1px solid ${flash.startsWith('⚠')?C.redBorder:C.greenBorder}`, borderRadius:8, padding:'9px 14px', fontSize:13, color:flash.startsWith('⚠')?C.red:C.green, marginBottom:10 }}>{flash}</div>}
-          <button onClick={submitVoucher} style={btn('primary')}>💾 전표 저장</button>
-        </div>
+          {flash&&<div style={{marginTop:14,background:flash.startsWith('⚠')?C.redBg:C.greenBg,border:`1px solid ${flash.startsWith('⚠')?C.redBorder:C.greenBorder}`,borderRadius:8,padding:'9px 14px',fontSize:13,color:flash.startsWith('⚠')?C.red:C.green}}>{flash}</div>}
+
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:14}}>
+            {editId&&<button onClick={()=>newForm(vType)} style={btn('ghost')}>✕ 편집 취소</button>}
+            <button onClick={submitVoucher} style={btn('primary')}>{editId?'💾 수정 저장':'💾 전표 저장'}</button>
+          </div>
+        </>
       )}
 
-      {tab==='list' && (
+      {tab==='list'&&(
         <div>
-          {/* 필터 + 요약 */}
-          <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-            <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} style={{ ...baseInput, width:'auto', background:C.white, padding:'6px 12px', cursor:'pointer' }}>
+          <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap',alignItems:'center'}}>
+            <select value={filter.type} onChange={e=>setFilter(f=>({...f,type:e.target.value}))} style={{...baseInput,width:'auto',background:C.white,padding:'6px 12px',cursor:'pointer'}}>
               <option value="all">전체</option>
-              <option value="transfer">대체전표</option>
               <option value="income">입금전표</option>
               <option value="expense">출금전표</option>
+              <option value="transfer">대체전표</option>
             </select>
-            <input type="month" value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value}))} style={{ ...baseInput, width:'auto', background:C.white }} />
-            {(filter.type!=='all'||filter.month) && <button onClick={()=>setFilter({type:'all',month:''})} style={{ ...btn('ghost'), height:34, fontSize:12 }}>필터 초기화</button>}
-            {totalIncome>0&&<span style={{ fontSize:12.5, color:C.green, fontWeight:600, marginLeft:'auto' }}>입금 {fmt(totalIncome)}원</span>}
-            {totalExpense>0&&<span style={{ fontSize:12.5, color:C.red, fontWeight:600 }}>출금 {fmt(totalExpense)}원</span>}
+            <input type="month" value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value}))} style={{...baseInput,width:'auto',background:C.white}}/>
+            {(filter.type!=='all'||filter.month)&&<button onClick={()=>setFilter({type:'all',month:''})} style={{...btn('ghost'),height:34,fontSize:12}}>필터 초기화</button>}
+            {totalIncome>0&&<span style={{fontSize:12.5,color:'#DC2626',fontWeight:600,marginLeft:'auto'}}>입금 {fmt(totalIncome)}원</span>}
+            {totalExpense>0&&<span style={{fontSize:12.5,color:'#1D4ED8',fontWeight:600}}>출금 {fmt(totalExpense)}원</span>}
           </div>
-          <div style={{ background:C.white, border:`1px solid ${C.border}`, borderRadius:14, overflow:'hidden', boxShadow:sh.card }}>
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', minWidth:700 }}>
-                <thead><tr>{[['전표번호','left',90],['날짜','left',90],['구분','left',76],['계정','left'],['금액','right',120],['결재','center',130],['','center',90]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
+          <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:14,overflow:'hidden',boxShadow:sh.card}}>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',minWidth:780}}>
+                <thead><tr>{[['전표번호','left',100],['날짜','left',100],['구분','left',92],['요약','left'],['금액','right',130],['결재','center',110],['','center',132]].map(([h,a,w])=><th key={h} style={TH(a,w)}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {displayV.length===0 && <tr><td colSpan={7} style={{ ...TD('center'), color:C.textHint, padding:'32px' }}>전표가 없습니다.</td></tr>}
+                  {displayV.length===0&&<tr><td colSpan={7} style={{...TD('center'),color:C.textHint,padding:'32px'}}>전표가 없습니다.</td></tr>}
                   {displayV.map((v,i)=>{
-                    const tb=typeBadge[v.type]||typeBadge.transfer;
-                    const lineColor=v.type==='income'?'#dc2626':v.type==='expense'?'#1d4ed8':'#111';
-                    const lineWidth=v.type==='transfer'?4:3;
-                    const locked=isLocked(v);
-                    const allApproved=APPROVER_SLOTS.every(s=>v.approvals?.[s.key]);
+                    const m=VOUCHER_TYPES[v.type]||VOUCHER_TYPES.income;
+                    const total=computeTotal(v.rows,v.type);
+                    const summary=v.type==='transfer'
+                      ?(v.rows[0]?.dr_acct||v.rows[0]?.cr_acct?`${v.rows[0].dr_acct||'?'} → ${v.rows[0].cr_acct||'?'}${v.rows.length>1?` 외 ${v.rows.length-1}건`:''}`:'—')
+                      :(v.rows[0]?.acct||v.rows[0]?.note?`${v.rows[0].acct||v.rows[0].note}${v.rows[0].payee?` (${v.rows[0].payee})`:''}${v.rows.length>1?` 외 ${v.rows.length-1}건`:''}`:'—');
                     return (
-                      <tr key={v.id} style={{ background:i%2===0?C.white:C.tAlt, borderLeft:`${lineWidth}px solid ${lineColor}` }}>
-                        <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>
-                          {locked && <span style={{fontSize:10,background:'#dcfce7',color:'#15803d',border:'1px solid #bbf7d0',borderRadius:4,padding:'1px 4px',marginRight:4}}>결재</span>}
-                          {v.vno}
-                        </td>
+                      <tr key={v.id} style={{background:i%2===0?C.white:C.tAlt,borderLeft:`4px solid ${m.accent}`}}>
+                        <td style={TD('left',{fontWeight:600,color:C.navy,fontSize:12})}>{v.vno}</td>
                         <td style={TD('left',{fontSize:12})}>{v.date}</td>
-                        <td style={TD('left')}><span style={{ background:tb.bg, color:tb.c, border:`1px solid ${tb.b}`, borderRadius:6, padding:'2px 7px', fontSize:11, fontWeight:700 }}>{typeLabel[v.type]}</span></td>
-                        <td style={TD('left',{fontSize:12})}>{v.type==='transfer'?`${v.debitAcct} → ${v.creditAcct}`:(v.account+(v.payee?` (${v.payee})`:'')||(v.note||'—'))}</td>
-                        <td style={TD('right',{fontWeight:800,color:lineColor,fontSize:13})}>{fmt(v.amount)}원</td>
+                        <td style={TD('left')}><span style={{background:m.badgeBg,color:m.badgeFg,border:`1px solid ${m.accent}33`,borderRadius:5,padding:'2px 7px',fontSize:11,fontWeight:700,letterSpacing:0.5}}>{m.short}</span></td>
+                        <td style={TD('left',{fontSize:12})}>{summary}</td>
+                        <td style={TD('right',{fontWeight:800,color:m.accent,fontSize:13})}>{fmt(total)}원</td>
                         <td style={TD('center')}>
                           <div style={{display:'flex',gap:3,justifyContent:'center'}}>
-                            {APPROVER_SLOTS.map(s=>{
-                              const ap=v.approvals?.[s.key];
-                              const isMe=mySlot?.key===s.key;
-                              return ap ? (
-                                <div key={s.key} title={`${ap.name}\n${fmtAt(ap.at)}`} style={{width:28,height:24,borderRadius:5,background:'#dcfce7',border:'1px solid #86efac',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:700,color:'#15803d',cursor:'default'}}>✓{s.key[0]}</div>
-                              ) : isMe ? (
-                                <button key={s.key} onClick={()=>handleApprove(v.id)} style={{width:28,height:24,borderRadius:5,background:'#fef9c3',border:'1px solid #fde047',fontSize:9,fontWeight:700,color:'#854d0e',cursor:'pointer'}}>{s.key[0]}결</button>
-                              ) : (
-                                <div key={s.key} style={{width:28,height:24,borderRadius:5,background:'#f3f4f6',border:'1px solid #e5e7eb',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,color:'#9ca3af'}}>-</div>
+                            {['담당','검토','확인'].map(slot=>{
+                              const ap=v.approvals?.[slot];
+                              return ap?(
+                                <span key={slot} title={`${ap.name||''}\n${fmtAt(ap.at)}`} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:26,height:26,borderRadius:'50%',border:'1.5px solid #C53030',color:'#C53030',fontSize:12,fontWeight:600,fontFamily:'serif',transform:'rotate(-6deg)',background:'#fff'}}>印</span>
+                              ):(
+                                <span key={slot} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:26,height:26,borderRadius:'50%',border:'1px dashed #e5e7eb',fontSize:9,color:'#cbd5e1'}}>{slot[0]}</span>
                               );
                             })}
                           </div>
                         </td>
                         <td style={TD('center')}>
-                          <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
-                            <button onClick={()=>handlePrint(v)} style={{ ...btn('navyGhost'), height:26, padding:'0 8px', fontSize:11 }}>출력</button>
-                            {v.fileUrl && <span style={{ cursor:'pointer', fontSize:16, lineHeight:'26px' }} onClick={()=>setImgModal(v.fileUrl)}>📎</span>}
-                            {!locked && <button onClick={()=>deleteV(v.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:16, lineHeight:1 }}>×</button>}
+                          <div style={{display:'flex',gap:4,justifyContent:'center'}}>
+                            <button onClick={()=>editVoucher(v)} style={{...btn('ghost'),height:26,padding:'0 8px',fontSize:11}}>편집</button>
+                            <button onClick={()=>handlePrint(v)} style={{...btn('navyGhost'),height:26,padding:'0 8px',fontSize:11}}>출력</button>
+                            <button onClick={()=>deleteV(v.id)} style={{background:'transparent',border:'none',cursor:'pointer',color:C.textHint,fontSize:16,lineHeight:1}}>×</button>
                           </div>
                         </td>
                       </tr>
@@ -4186,14 +4505,46 @@ function VoucherPage({ role }) {
           </div>
         </div>
       )}
-
-      {imgModal && (
-        <div onClick={()=>setImgModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out' }}>
-          <img src={imgModal} alt="영수증" style={{ maxWidth:'92vw', maxHeight:'90vh', borderRadius:8 }} onClick={e=>e.stopPropagation()} />
-          <button onClick={()=>setImgModal(null)} style={{ position:'fixed', top:18, right:22, background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', borderRadius:'50%', width:36, height:36, fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
-        </div>
-      )}
     </div>
+  );
+}
+
+// ─── Voucher 헬퍼 ─────────────────────────────────────────────
+function emptyRow(){ return {acct:'',payee:'',note:'',amount:''}; }
+function emptyJournalRow(){ return {dr_acct:'',dr_note:'',dr_amt:'',cr_acct:'',cr_note:'',cr_amt:''}; }
+function emptyVoucherForm(type){
+  const rows=type==='transfer'
+    ?[emptyJournalRow(),emptyJournalRow(),emptyJournalRow(),emptyJournalRow(),emptyJournalRow()]
+    :[emptyRow(),emptyRow(),emptyRow(),emptyRow()];
+  return { date:new Date().toISOString().split('T')[0], vno:'', rows, summary:'', approvals:{} };
+}
+function rowHasContent(r){ return Object.values(r).some(v=>v!==''&&v!==0&&v!=null); }
+function computeTotal(rows,type){
+  if(type==='transfer'){ const{dr,cr}=computeJournalTotals(rows); return Math.max(dr,cr); }
+  return rows.reduce((s,r)=>s+(Number(r.amount)||0),0);
+}
+function computeJournalTotals(rows){
+  const dr=rows.reduce((s,r)=>s+(Number(r.dr_amt)||0),0);
+  const cr=rows.reduce((s,r)=>s+(Number(r.cr_amt)||0),0);
+  return {dr,cr};
+}
+function fmtAt(iso){ if(!iso) return ''; const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function fmtN(n){ return Math.round(Number(n)||0).toLocaleString('ko-KR'); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatKDate(d){ if(!d) return ''; const [y,m,dd]=d.split('-'); return `${y} 년 ${Number(m)} 월 ${Number(dd)} 일`; }
+
+function AmountInput({value,onChange}){
+  const [text,setText]=useState(value?Number(value).toLocaleString('ko-KR'):'');
+  useEffect(()=>{ setText(value?Number(value).toLocaleString('ko-KR'):''); },[value]);
+  return (
+    <input className="cell" value={text}
+      onChange={e=>setText(e.target.value)}
+      onBlur={()=>{
+        const n=Number(String(text).replace(/[^\d-]/g,''))||0;
+        setText(n?n.toLocaleString('ko-KR'):'');
+        onChange(n);
+      }}
+      inputMode="numeric"/>
   );
 }
 
@@ -4524,12 +4875,17 @@ export default function App() {
   };
   // Firebase 로그인
   const handleLogin=async(email,password)=>{
-    // ── 긴급 로컬 비밀번호 (Firebase 설정 전 임시) ──
+    // ── 로컬 비밀번호 우선 ──
     if(password===masterPw){ setLoggedIn(true); setRole('master'); store.set('tl_user_name','마스터'); return {ok:true}; }
     if(password===adminPw){  setLoggedIn(true); setRole('admin');  store.set('tl_user_name','대표');   return {ok:true}; }
     if(password===savedPw){  setLoggedIn(true); setRole('staff');  store.set('tl_user_name','직원');   return {ok:true}; }
 
-    // ── Firebase 로그인 ──
+    // 이메일 없이 로컬 PW만 시도한 경우 → 8초 대기 없이 즉시 실패
+    if(!email||email==='local@taelim.com'){
+      return {ok:false, error:'비밀번호가 올바르지 않습니다.'};
+    }
+
+    // ── Firebase 로그인 (이메일 입력시만) ──
     try {
       const loginPromise=signInWithEmailAndPassword(auth,email,password);
       const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),8000));
