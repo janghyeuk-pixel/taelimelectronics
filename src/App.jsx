@@ -11,7 +11,16 @@ import {
   query, orderBy, onSnapshot, updateDoc, where, getDocs, serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 
-const DEFAULT_PASSWORD = "taelim2024";
+const DEFAULT_PASSWORD = "taelim1staff";
+// 추가 사용자 — 이름과 권한 매핑
+const EXTRA_USERS = [
+  { name:'박형준', role:'admin',  pw:'taelimmotor'        }, // 대표이사
+  { name:'박호준', role:'admin',  pw:'taelimelectronics'  }, // 이사
+  { name:'직원1',   role:'staff',  pw:'taelim1staff'       }, // Staff1 (= DEFAULT_PASSWORD)
+  { name:'직원2',   role:'staff',  pw:'taelim2staff'       }, // Staff2
+  { name:'Guest1',  role:'guest',  pw:'taelimguest1'       }, // 게스트1 (보기만)
+  { name:'Guest2',  role:'guest',  pw:'taelimguest2'       }, // 게스트2 (보기만)
+];
 const CO_ADDR = "우08377 서울특별시 구로구 디지털로 33길 58";
 const CO_TEL  = "02-867-2000";
 const CO_FAX  = "02-863-6750";
@@ -83,15 +92,24 @@ const INITIAL_HISTORY = [
     images:{}, savedAt:'2026-03-08T00:00:00.000Z',
     amounts:{ wedgwood:7109628, taeha:6022916, yuyeon:7878090 },
   },
-  // 1월 검침 → 2월 청구
+  // 1월 검침 → 2월 청구 (수도는 격월: 1월=X)
   {
-    periodStart:'2026-01-08', periodEnd:'2026-02-07', waterCalc:'O',
+    periodStart:'2026-01-08', periodEnd:'2026-02-07', waterCalc:'X',
     elec:{ w1_220:{prev:3809,curr:3825}, t2_220:{prev:5626,curr:5648}, t2_380:{prev:8144,curr:8147}, y3_220:{prev:5012,curr:5045}, y3_380:{prev:20661,curr:25420}, o4_220:{prev:5258,curr:5285} },
     water:{ w1:{prev:1889,curr:1893}, t2:{prev:3303,curr:3310}, y3:{prev:3428,curr:3456}, o4:{prev:919,curr:925} },
     elecBill:{basicFee:974700,powerFund:97140,totalAmount:4057480,vat:359804,safetyFee:300000},
-    waterBill:{totalAmount:60800,basicFee:32000},
+    waterBill:{totalAmount:0,basicFee:32000},
     images:{}, savedAt:'2026-02-08T00:00:00.000Z',
     amounts:{ wedgwood:6993266, taeha:5238684, yuyeon:7288290 },
+  },
+  // 12월 검침 → 1월 청구 (수도는 격월: 12월=O — 검침값 회사에서 채울 것)
+  {
+    periodStart:'2025-12-08', periodEnd:'2026-01-07', waterCalc:'O',
+    elec:{ w1_220:{prev:0,curr:3809}, t2_220:{prev:0,curr:5626}, t2_380:{prev:0,curr:8144}, y3_220:{prev:0,curr:5012}, y3_380:{prev:0,curr:20661}, o4_220:{prev:0,curr:5258} },
+    water:{ w1:{prev:0,curr:1889}, t2:{prev:0,curr:3303}, y3:{prev:0,curr:3428}, o4:{prev:0,curr:919} },
+    elecBill:{basicFee:974700,powerFund:70110,totalAmount:2929340,vat:259703,safetyFee:300000},
+    waterBill:{totalAmount:60800,basicFee:32000},
+    images:{}, savedAt:'2026-01-08T00:00:00.000Z',
   },
 ];
 
@@ -363,8 +381,10 @@ function RegisterPage({ onBack, onDone }) {
     if(form.password.length<6){ setErr('비밀번호는 6자 이상이어야 합니다.'); return; }
     setLoading(true); setErr('');
     try {
-      // Firebase Auth 계정 생성
-      const cred=await createUserWithEmailAndPassword(auth,form.email.trim(),form.password);
+      // Firebase Auth 계정 생성 + 8초 타임아웃
+      const createPromise=createUserWithEmailAndPassword(auth,form.email.trim(),form.password);
+      const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),8000));
+      const cred=await Promise.race([createPromise,timeoutPromise]);
       // localStorage에 프로필 저장 (Firestore 없이도 작동)
       const users=store.get('tl_fb_users')||{};
       const isFirst=Object.keys(users).length===0;
@@ -382,10 +402,13 @@ function RegisterPage({ onBack, onDone }) {
       const msg={
         'auth/email-already-in-use':'이미 사용 중인 이메일입니다. 로그인을 시도해보세요.',
         'auth/invalid-email':'이메일 형식이 올바르지 않습니다.',
-        'auth/weak-password':'비밀번호가 너무 약합니다.',
+        'auth/weak-password':'비밀번호가 너무 약합니다 (6자 이상).',
+        'auth/operation-not-allowed':'이메일/비밀번호 가입이 비활성화되어 있습니다. (관리자 문의)',
         'auth/network-request-failed':'네트워크 오류. 인터넷 연결을 확인해주세요.',
+        'auth/too-many-requests':'잠시 후 다시 시도해주세요.',
+        'timeout':'연결 시간 초과. 다시 시도해주세요.',
       };
-      setErr(msg[e.code]||e.message);
+      setErr(msg[e.code]||e.message||'가입 실패. 다시 시도해주세요.');
     }
     setLoading(false);
   };
@@ -577,8 +600,14 @@ function LoginPage({ onLogin, onGoogleLogin }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────
-function Header({ page, setPage, onLogout, role, pendingCount }) {
+function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
   const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
+  const roleStyle={
+    master:{ icon:'🔑', label:'MASTER', bg:'rgba(167,139,250,0.25)', bd:'rgba(167,139,250,0.5)', fg:'#c4b5fd' },
+    admin: { icon:'👑', label:'대표/이사', bg:'rgba(250,204,21,0.25)', bd:'rgba(250,204,21,0.5)', fg:'#fde047' },
+    staff: { icon:'👤', label:'직원',     bg:'rgba(96,165,250,0.18)', bd:'rgba(96,165,250,0.4)', fg:'#93c5fd' },
+    guest: { icon:'👁', label:'게스트',   bg:'rgba(255,255,255,0.06)', bd:'rgba(255,255,255,0.15)', fg:'rgba(255,255,255,0.55)' },
+  }[role]||{ icon:'👤', label:'', bg:'rgba(255,255,255,0.08)', bd:'rgba(255,255,255,0.15)', fg:'rgba(255,255,255,0.6)' };
   return (
     <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10 }}>
@@ -601,8 +630,10 @@ function Header({ page, setPage, onLogout, role, pendingCount }) {
         })}
         <div style={{ width:1, height:18, background:'rgba(255,255,255,0.12)', margin:'0 5px', flexShrink:0 }} />
         <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
-          <span style={{ background:role==='master'?'rgba(167,139,250,0.25)':role==='admin'?'rgba(250,204,21,0.25)':'rgba(255,255,255,0.08)', border:`1px solid ${role==='master'?'rgba(167,139,250,0.5)':role==='admin'?'rgba(250,204,21,0.5)':'rgba(255,255,255,0.15)'}`, borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700, color:role==='master'?'#c4b5fd':role==='admin'?'#fde047':'rgba(255,255,255,0.6)', whiteSpace:'nowrap' }}>
-            {role==='master'?'🔑 MASTER':role==='admin'?'👑 대표':'👤'}
+          <span style={{ background:roleStyle.bg, border:`1px solid ${roleStyle.bd}`, borderRadius:6, padding:'3px 9px', fontSize:10.5, fontWeight:700, color:roleStyle.fg, whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:5 }}>
+            <span>{roleStyle.icon}</span>
+            {userName && <span style={{ color:'#fff', fontWeight:700 }}>{userName}</span>}
+            <span style={{ opacity:0.7, fontSize:9.5, letterSpacing:'0.5px' }}>{roleStyle.label}</span>
           </span>
           <button onClick={onLogout} style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'5px 10px', fontSize:11, cursor:'pointer', color:'rgba(255,255,255,0.5)', fontFamily:'inherit', whiteSpace:'nowrap' }}>로그아웃</button>
         </div>
@@ -2599,6 +2630,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   // Telegram
   const [tgToken,setTgToken]=useState(()=>store.get('tl_telegram_token')||'');
   const [tgAdmin,setTgAdmin]=useState(()=>store.get('tl_telegram_admin')||'');
+  const [tgAdmin2,setTgAdmin2]=useState(()=>store.get('tl_telegram_admin2')||'');
   const [tgStaff,setTgStaff]=useState(()=>store.get('tl_telegram_staff')||'');
   const [tgMsg,setTgMsg]=useState('');
   // User name
@@ -2627,6 +2659,51 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const removeDoc=(month,type)=>{
     const next={...billDocs,[month]:{...(billDocs[month]||{}),[type]:null}};
     setBillDocs(next); store.set('tl_bill_docs',next);
+  };
+  // 백업/복원
+  const backupFileRef=useRef(null);
+  const [bkMsg,setBkMsg]=useState('');
+  const handleExportBackup=()=>{
+    const data={};
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith('tl_')){
+        try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch{ data[k]=localStorage.getItem(k); }
+      }
+    }
+    const payload={ meta:{ app:'taelim-mgmt', exportedAt:new Date().toISOString(), version:1, count:Object.keys(data).length }, data };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+    a.href=url; a.download=`taelim-backup-${ts}.json`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setBkMsg(`✓ ${Object.keys(data).length}개 항목 백업 완료`);
+    setTimeout(()=>setBkMsg(''),3500);
+  };
+  const handleImportBackup=(e)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const obj=JSON.parse(ev.target.result);
+        const data=obj?.data||obj;
+        if(!data||typeof data!=='object') throw new Error('형식 오류');
+        const keys=Object.keys(data).filter(k=>k.startsWith('tl_'));
+        if(keys.length===0) throw new Error('유효한 백업 키가 없습니다');
+        if(!window.confirm(`백업의 ${keys.length}개 항목으로 현재 데이터를 덮어씌웁니다.\n계속하시겠습니까?`)) return;
+        keys.forEach(k=>{
+          const v=data[k];
+          try{ localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); }catch{}
+        });
+        setBkMsg('✓ 복원 완료 — 페이지를 새로고침합니다…');
+        setTimeout(()=>window.location.reload(),1200);
+      }catch(err){
+        setBkMsg('⚠ 복원 실패: '+err.message);
+        setTimeout(()=>setBkMsg(''),5000);
+      }
+    };
+    reader.readAsText(file);
   };
   const [emailSubject,setEmailSubject]=useState('');
   const [emailBody,setEmailBody]=useState('');
@@ -2685,6 +2762,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const saveTgSettings=()=>{
     store.set('tl_telegram_token',tgToken);
     store.set('tl_telegram_admin',tgAdmin);
+    store.set('tl_telegram_admin2',tgAdmin2);
     store.set('tl_telegram_staff',tgStaff);
     setTgMsg('✓ 저장됐습니다.');  setTimeout(()=>setTgMsg(''),2500);
   };
@@ -2753,8 +2831,9 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10, marginBottom:12 }}>
           <div><FL text="봇 토큰 (Bot Token)" /><input type="password" value={tgToken} onChange={e=>setTgToken(e.target.value)} placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ" style={{ ...baseInput, background:C.white, fontFamily:'monospace', fontSize:12 }} /></div>
-          <div><FL text="대표님 Chat ID (긴급호출 + 결재알림 수신)" /><input value={tgAdmin} onChange={e=>setTgAdmin(e.target.value)} placeholder="예: 123456789" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
-          <div><FL text="직원 Chat ID (승인/반려 결과 수신 — 선택)" /><input value={tgStaff} onChange={e=>setTgStaff(e.target.value)} placeholder="예: 987654321 (없으면 비워두세요)" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
+          <div><FL text="박형준 (대표이사) Chat ID — 긴급호출 + 결재알림 수신" /><input value={tgAdmin} onChange={e=>setTgAdmin(e.target.value)} placeholder="예: 123456789" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
+          <div><FL text="박호준 (이사) Chat ID — 결재알림 수신 (선택)" /><input value={tgAdmin2} onChange={e=>setTgAdmin2(e.target.value)} placeholder="예: 987654321 (없으면 비워두세요)" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
+          <div><FL text="직원 Chat ID — 승인/반려 결과 수신 (선택)" /><input value={tgStaff} onChange={e=>setTgStaff(e.target.value)} placeholder="예: 555555555 (없으면 비워두세요)" style={{ ...baseInput, background:C.white, fontFamily:'monospace' }} /></div>
         </div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button onClick={saveTgSettings} style={btn('primary')}>💾 저장</button>
@@ -3066,6 +3145,24 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
               ))}
           </div>
         )}
+      </div>
+
+      {/* ── 데이터 백업 / 복원 ── */}
+      <div style={CARD}>
+        <SecHead icon="💾" title="데이터 백업 / 복원" />
+        <input ref={backupFileRef} type="file" accept="application/json" style={{ display:'none' }} onChange={handleImportBackup} />
+        <div style={{ background:'#FFF8E6', border:`1px solid #F5D78A`, borderRadius:8, padding:'10px 12px', marginBottom:12, fontSize:12.5, color:'#7A5300', lineHeight:1.6 }}>
+          ⚠ 브라우저 캐시·쿠키를 지우면 검침/자금현황/임차인/사용자/비밀번호 등 <b>모든 로컬 데이터가 삭제</b>됩니다. 정기적으로 백업 파일을 받아두세요.
+        </div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+          <button onClick={handleExportBackup} style={btn('primary')}>📥 전체 백업 다운로드 (.json)</button>
+          <button onClick={()=>{ backupFileRef.current.value=''; backupFileRef.current.click(); }} style={btn('navyGhost')}>📤 백업 파일에서 복원</button>
+          {bkMsg && <span style={{ fontSize:12.5, fontWeight:600, color:bkMsg.includes('✓')?C.green:C.red }}>{bkMsg}</span>}
+        </div>
+        <div style={{ marginTop:10, fontSize:11.5, color:C.textHint, lineHeight:1.6 }}>
+          포함 항목: 검침/히스토리, 자금현황, 임차인, 사용자, 비밀번호(평문), 출퇴근, 결재, 알림 토큰, 고지서 이미지 등 모든 <code>tl_*</code> 데이터.
+          <br/>※ 전표는 Supabase에 별도 저장되어 백업 대상이 아닙니다.
+        </div>
       </div>
 
       {/* 이미지 모달 */}
@@ -3771,7 +3868,7 @@ const VOUCHER_CSS = `
 function ApprovalPage({ role }) {
   const [items,setItems]=useState(()=>store.get('tl_approvals')||[]);
   const [tab,setTab]=useState(role==='admin'?'pending':'submit');
-  const [form,setForm]=useState({type:'report',title:'',content:'',urgent:false});
+  const [form,setForm]=useState({type:'report',title:'',content:'',urgent:false,recipient:'both'});
   const [reviewNotes,setReviewNotes]=useState({});
   const [flash,setFlash]=useState({text:'',ok:true});
   const [sending,setSending]=useState(false);
@@ -3782,7 +3879,7 @@ function ApprovalPage({ role }) {
   const authorName=store.get('tl_user_name')||role;
 
   const saveItems=(next)=>{ setItems(next); store.set('tl_approvals',next); };
-  const tg=()=>({ token:store.get('tl_telegram_token'), admin:store.get('tl_telegram_admin'), staff:store.get('tl_telegram_staff') });
+  const tg=()=>({ token:store.get('tl_telegram_token'), admin:store.get('tl_telegram_admin'), admin2:store.get('tl_telegram_admin2'), staff:store.get('tl_telegram_staff') });
   const msg=(text,ok=true)=>{ setFlash({text,ok}); setTimeout(()=>setFlash({text:'',ok:true}),5000); };
 
   // 재알림 체크 (5분 후 미확인 시 재전송)
@@ -3799,17 +3896,22 @@ function ApprovalPage({ role }) {
 
   const submitApproval=async()=>{
     if(!form.title.trim()){ msg('제목을 입력하세요.',false); return; }
-    const item={id:Date.now(),type:form.type,urgent:form.urgent,title:form.title.trim(),content:form.content.trim(),author:authorName,submittedAt:new Date().toISOString(),status:'pending',reviewNote:'',reviewedAt:null};
+    const item={id:Date.now(),type:form.type,urgent:form.urgent,title:form.title.trim(),content:form.content.trim(),author:authorName,recipient:form.recipient,submittedAt:new Date().toISOString(),status:'pending',reviewNote:'',reviewedAt:null};
     saveItems([item,...items]);
-    setForm({type:'report',title:'',content:'',urgent:false});
-    const {token,admin}=tg();
-    if(token&&admin){
-      const urgTag=form.urgent?'🚨 <b>[긴급]</b> ':'';
-      const typeMap={report:'📋 업무보고',request:'📝 결재요청',leave:'🗓 휴가/조퇴'};
-      const txt=`${urgTag}${typeMap[form.type]||''} <b>결재 요청</b>\n\n작성자: ${authorName}\n제목: <b>${form.title}</b>\n\n${form.content?form.content.slice(0,400):'(내용 없음)'}\n\n🕒 ${new Date().toLocaleString('ko-KR')}\n\n👉 <i>아래 링크로 접속 후 전자결재 탭에서 확인 가능</i>`;
-      const res=await sendTelegram(token,admin,txt);
-      msg(res.ok?`✓ 제출 완료 · 대표님께 Telegram 알림 전송됨`:`✓ 제출 완료 (Telegram 미설정 또는 오류: ${res.err})`);
-    } else { msg('✓ 결재 요청 제출 완료 (Telegram 미설정)'); }
+    setForm({type:'report',title:'',content:'',urgent:false,recipient:'both'});
+    const {token,admin,admin2}=tg();
+    if(!token){ msg('✓ 제출 완료 (Telegram 미설정)'); return; }
+    const urgTag=form.urgent?'🚨 <b>[긴급]</b> ':'';
+    const typeMap={report:'📋 업무보고',request:'📝 결재요청',leave:'🗓 휴가/조퇴'};
+    const recipLabel={hyungjun:'박형준 대표이사',hojun:'박호준 이사',both:'박형준 대표이사 + 박호준 이사'}[form.recipient]||'';
+    const txt=`${urgTag}${typeMap[form.type]||''} <b>결재 요청</b>\n\n작성자: ${authorName}\n수신: ${recipLabel}\n제목: <b>${form.title}</b>\n\n${form.content?form.content.slice(0,400):'(내용 없음)'}\n\n🕒 ${new Date().toLocaleString('ko-KR')}\n\n👉 <i>전자결재 탭에서 확인 후 처리해주세요.</i>`;
+    const targets=[];
+    if((form.recipient==='hyungjun'||form.recipient==='both')&&admin)  targets.push({chat:admin,name:'박형준'});
+    if((form.recipient==='hojun'||form.recipient==='both')&&admin2)    targets.push({chat:admin2,name:'박호준'});
+    if(targets.length===0){ msg('✓ 제출 완료 (수신자 Chat ID 미설정)'); return; }
+    const results=await Promise.all(targets.map(t=>sendTelegram(token,t.chat,txt)));
+    const oks=results.filter(r=>r.ok).length;
+    msg(oks===targets.length?`✓ 제출 완료 · ${targets.map(t=>t.name).join('·')}님께 Telegram 알림`:`✓ 제출 완료 · 일부 알림 실패 (${oks}/${targets.length})`,oks>0);
   };
 
   const doReview=async(id,status)=>{
@@ -3932,6 +4034,15 @@ function ApprovalPage({ role }) {
               style={{ ...btn(form.urgent?'danger':'secondary'), height:34 }}>
               {form.urgent?'🚨 긴급':'긴급 아님'}
             </button>
+          </div>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:6 }}>결재자 선택</div>
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              {[['hyungjun','👑 박형준 대표이사'],['hojun','👑 박호준 이사'],['both','👑 두 분 모두']].map(([v,l])=>(
+                <button key={v} onClick={()=>setForm(f=>({...f,recipient:v}))}
+                  style={{ ...btn(form.recipient===v?'active':'ghost'), height:32, fontSize:12 }}>{l}</button>
+              ))}
+            </div>
           </div>
           <div style={{ marginBottom:10 }}>
             <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4 }}>제목</div>
@@ -4558,7 +4669,7 @@ function ManualPage() {
       desc:'사이트에 처음 접속할 때 비밀번호를 입력합니다',
       steps:[
         { title:'사이트 접속', detail:'인터넷 브라우저(크롬 권장)를 열고 주소창에 사이트 주소를 입력합니다. 즐겨찾기에 저장해 두시면 편합니다.' },
-        { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 대표님 비밀번호: admin2024\n▸ 직원 비밀번호: taelim2024\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
+        { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 박형준 (대표이사): taelimmotor\n▸ 박호준 (이사): taelimelectronics\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
         { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
         { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
         { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 박장혁 이사에게 연락 주세요.' },
@@ -4805,7 +4916,7 @@ ${sections.map(s=>`
 
       <div style={{ marginTop:18, background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'15px 18px', fontSize:13, color:C.navyDark, lineHeight:2 }}>
         <div style={{ fontWeight:800, marginBottom:6, fontSize:13.5 }}>📌 꼭 알아두세요</div>
-        <div>· <b>비밀번호</b> — 대표님: <b>admin2024</b> / 직원: <b>taelim2024</b></div>
+        <div>· <b>비밀번호</b> — 박형준: <b>taelimmotor</b> / 박호준: <b>taelimelectronics</b> / 직원1: <b>taelim1staff</b> / 직원2: <b>taelim2staff</b> / Guest1·2: <b>taelimguest1·2</b> (보기 전용)</div>
         <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으니 주의!</div>
         <div>· <b>Telegram 알림</b> — 설정 탭에서 봇 토큰을 설정해야 긴급호출 알림이 작동합니다.</div>
         <div>· <b>문의</b> — 시스템 문제 시 박장혁 이사 ({CO_TEL}) 에게 연락 주세요.</div>
@@ -4844,7 +4955,7 @@ export default function App() {
   const [role,setRole]=useState('staff');
   const [userProfile,setUserProfile]=useState(null);
   const [savedPw,setSavedPw]=useState(()=>store.get('tl_pw')||DEFAULT_PASSWORD);
-  const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'admin2024');
+  const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'taelimmotor');
   const [masterPw,setMasterPw]=useState(()=>store.get('tl_master_pw')||'master2024');
   const [page,setPage]=useState('input');
   const [approvals,setApprovals]=useState(()=>store.get('tl_approvals')||[]);
@@ -4877,6 +4988,9 @@ export default function App() {
   const handleLogin=async(email,password)=>{
     // ── 로컬 비밀번호 우선 ──
     if(password===masterPw){ setLoggedIn(true); setRole('master'); store.set('tl_user_name','마스터'); return {ok:true}; }
+    // 등록된 사용자(EXTRA_USERS) 매칭 — 박형준/박호준/직원1/직원2
+    const extra=EXTRA_USERS.find(u=>u.pw===password);
+    if(extra){ setLoggedIn(true); setRole(extra.role); store.set('tl_user_name',extra.name); return {ok:true}; }
     if(password===adminPw){  setLoggedIn(true); setRole('admin');  store.set('tl_user_name','대표');   return {ok:true}; }
     if(password===savedPw){  setLoggedIn(true); setRole('staff');  store.set('tl_user_name','직원');   return {ok:true}; }
 
@@ -4919,30 +5033,43 @@ export default function App() {
   const handleGoogleLogin=async()=>{
     try {
       const provider=new GoogleAuthProvider();
-      const cred=await signInWithPopup(auth,provider);
-      let snap=await getDoc(doc(db,'users',cred.user.uid));
-      if(!snap.exists()){
-        // 첫 구글 로그인 → 자동 프로필 생성
-        const allSnap=await getDocs(collection(db,'users'));
-        const isFirst=allSnap.empty;
-        const empNo=`EMP-${String(allSnap.size+1).padStart(3,'0')}`;
-        const profile={ name:cred.user.displayName||cred.user.email, email:cred.user.email,
-          dept:'', role:isFirst?'master':'pending', approved:isFirst, empNo,
+      provider.setCustomParameters({ prompt:'select_account' });
+      // 팝업 + 8초 타임아웃 (네트워크 막힘 방어)
+      const popupPromise=signInWithPopup(auth,provider);
+      const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),12000));
+      const cred=await Promise.race([popupPromise,timeoutPromise]);
+
+      // localStorage 기반 프로필 (Firestore 호출 없음)
+      const users=store.get('tl_fb_users')||{};
+      let profile=users[cred.user.uid];
+      if(!profile){
+        const isFirst=Object.keys(users).length===0;
+        const empNo=`EMP-${String(Object.keys(users).length+1).padStart(3,'0')}`;
+        profile={ name:cred.user.displayName||cred.user.email, email:cred.user.email,
+          dept:'', role:isFirst?'master':'staff', approved:true, empNo,
           createdAt:new Date().toISOString() };
-        await setDoc(doc(db,'users',cred.user.uid),profile);
-        if(!isFirst){ await signOut(auth); return {ok:false,error:'첫 Google 로그인 완료! 관리자 승인 후 이용 가능합니다.'}; }
-        snap=await getDoc(doc(db,'users',cred.user.uid));
+        users[cred.user.uid]=profile;
+        store.set('tl_fb_users',users);
+        // Firestore에도 저장 시도 (실패해도 무시)
+        try { await setDoc(doc(db,'users',cred.user.uid),profile); } catch(_){}
       }
-      const profile=snap.data();
-      if(!profile.approved){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다.'}; }
+      if(profile.approved===false){ await signOut(auth); return {ok:false,error:'관리자 승인 대기 중입니다.'}; }
       setRole(profile.role||'staff');
       setUserProfile(profile);
       store.set('tl_user_name',profile.name||cred.user.email);
       setLoggedIn(true);
       return {ok:true};
     } catch(e){
-      if(e.code==='auth/popup-closed-by-user') return {ok:false,error:'로그인 창이 닫혔습니다.'};
-      return {ok:false,error:e.message};
+      const msg={
+        'auth/popup-closed-by-user':'로그인 창이 닫혔습니다.',
+        'auth/popup-blocked':'팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도해주세요.',
+        'auth/cancelled-popup-request':'다시 시도해주세요.',
+        'auth/unauthorized-domain':'이 도메인은 Firebase에 등록되어 있지 않습니다. (관리자 문의)',
+        'auth/operation-not-allowed':'Google 로그인이 비활성화되어 있습니다. (관리자 문의)',
+        'auth/network-request-failed':'네트워크 오류. 인터넷 연결을 확인해주세요.',
+        'timeout':'연결 시간 초과. 다시 시도해주세요.',
+      };
+      return {ok:false,error:msg[e.code]||e.message||'Google 로그인 실패'};
     }
   };
 
@@ -4951,7 +5078,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", minHeight:'100vh', background:C.pageBg }}>
-      <Header page={page} setPage={setPage} onLogout={async()=>{ await signOut(auth); setLoggedIn(false); setRole('staff'); setUserProfile(null); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} />
+      <Header page={page} setPage={setPage} onLogout={async()=>{ await signOut(auth); setLoggedIn(false); setRole('staff'); setUserProfile(null); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} userName={store.get('tl_user_name')||''} />
       <main style={{ padding:'20px 24px', maxWidth:980, margin:'0 auto' }}>
         {page==='input'     && <InputPage    reading={reading} onChange={onChange} onSave={onSave} saveMsg={saveMsg} />}
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
