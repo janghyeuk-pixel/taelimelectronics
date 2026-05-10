@@ -24,12 +24,21 @@ const EXTRA_USERS = [
 const CO_ADDR = "우08377 서울특별시 구로구 디지털로 33길 58";
 const CO_TEL  = "02-867-2000";
 const CO_FAX  = "02-863-6750";
+// 공급자(태림) 세금계산서 발행 정보
+const CO_NAME     = "태림전자공업㈜";
+const CO_BIZ_NO   = "113-81-18542";
+const CO_CEO      = "박형준";
+const CO_BIZ_TYPE = "제조";
+const CO_BIZ_ITEM = "소형 모터";
+const CO_EMAIL    = "janghyeuk@gmail.com";
 
 const INITIAL_TENANTS = [
-  { id:'wedgwood', name:'한국웨지우드', fullName:'한국웨지우드마케팅㈜', floor:'1층', suffix:'01', rent:5400000, mgmtArea:133, elevator:0,    deposit:54000000, area:439.67, contractStart:'2024-12-11', contractEnd:'2025-12-10', mgmtFee:400000 },
-  { id:'taeha',   name:'태하무역',    fullName:'㈜태하무역',            floor:'2층', suffix:'02', rent:3750000, mgmtArea:160, elevator:44353,  deposit:45650000, area:481.16, contractStart:'2024-11-01', contractEnd:'2025-10-31' },
-  { id:'yuyeon',  name:'유연어패럴',  fullName:'유연어패럴',            floor:'3층', suffix:'03', rent:4125000, mgmtArea:200, elevator:44353,  deposit:35000000, area:481.3,  contractStart:'', contractEnd:'' },
+  { id:'wedgwood', name:'한국웨지우드', fullName:'한국웨지우드마케팅㈜', floor:'1층', suffix:'01', rent:5400000, mgmtArea:133, elevator:0,    deposit:54000000, area:439.67, contractStart:'2024-12-11', contractEnd:'2025-12-10', mgmtFee:400000, email:'janghyeuk@kakao.com' },
+  { id:'taeha',   name:'태하무역',    fullName:'㈜태하무역',            floor:'2층', suffix:'02', rent:3750000, mgmtArea:160, elevator:44353,  deposit:45650000, area:481.16, contractStart:'2024-11-01', contractEnd:'2025-10-31', email:'janghyeuk@naver.com' },
+  { id:'yuyeon',  name:'유연어패럴',  fullName:'유연어패럴',            floor:'3층', suffix:'03', rent:4125000, mgmtArea:200, elevator:44353,  deposit:35000000, area:481.3,  contractStart:'', contractEnd:'', email:'janghyeuk@nate.com' },
 ];
+// 청구서 발송 시 본인이 사본 받을 BCC 주소
+const INVOICE_BCC = 'taelimmotoro@outlook.com';
 
 const INITIAL_ACCOUNTS = {
   acct018: { label:'보통018', prev:0, curr:0 },
@@ -295,6 +304,191 @@ function calcAll(reading) {
     waterDetail={usage:wu,totalUsage:totalWater,basicPerFloor,netWaterFee};
   }
   return {kwh,totalKwh,elecDetail,floorElec,waterCharges,waterDetail};
+}
+
+// ─── 이메일용 청구서 HTML (인라인 스타일, 이메일 클라이언트 호환) ──
+function buildInvoiceEmailHtml(tenant, reading, calc) {
+  const billingNo = getBillingNo(reading.periodEnd);
+  const billingMonth = getBillingMonth(reading.periodEnd);
+  const fKey = tenant.id==='wedgwood'?'w1':tenant.id==='taeha'?'t2':'y3';
+  const { kwh, totalKwh, elecDetail:ed, floorElec, waterCharges } = calc;
+  const elecFee = floorElec[fKey]||0;
+  const waterFee = reading.waterCalc==='O'?(waterCharges[fKey]||0):0;
+  const mgmtFee = tenant.mgmtFee!=null?tenant.mgmtFee:tenant.mgmtArea*2500;
+  const elevatorFee = tenant.elevator||0;
+  const mgmtTotal = elecFee+waterFee+mgmtFee+elevatorFee;
+  const mgmtVat = Math.floor(mgmtTotal*0.1);
+  const rentVat = Math.floor(tenant.rent*0.1);
+  const grandTotal = tenant.rent+rentVat+mgmtTotal+mgmtVat;
+  const elecUsage = totalKwh>0?Math.round(ed.netElecFee*(kwh[fKey]||0)/totalKwh):0;
+  const detailRow = (label, desc, amt) =>
+    `<tr><td style="padding:7px 12px;font-size:12.5px;border-bottom:1px solid #eee;">${label}</td>`+
+    `<td style="padding:7px 12px;font-size:11px;color:#666;border-bottom:1px solid #eee;">${desc}</td>`+
+    `<td style="padding:7px 12px;text-align:right;font-size:12.5px;border-bottom:1px solid #eee;font-variant-numeric:tabular-nums;">${fmt(amt)} 원</td></tr>`;
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;color:#0f172a;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:24px 0;">
+  <tr><td align="center">
+    <table cellpadding="0" cellspacing="0" border="0" width="640" style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+      <tr><td style="background:linear-gradient(135deg,#3730a3,#6366f1);padding:24px 28px;color:#fff;">
+        <div style="font-size:11px;letter-spacing:2px;opacity:0.85;">TAE LIM ELECTRONICS</div>
+        <div style="font-size:22px;font-weight:900;margin-top:4px;">${CO_NAME}</div>
+        <div style="font-size:13px;opacity:0.85;margin-top:2px;">${billingMonth} 관리비 청구서 · No. ${billingNo}-${tenant.suffix}</div>
+      </td></tr>
+      <tr><td style="padding:22px 28px;">
+        <div style="font-size:13px;color:#475569;margin-bottom:18px;line-height:1.7;">
+          <strong style="color:#0f172a;">${tenant.fullName}</strong> 귀중<br/>
+          평소 협조해 주셔서 감사합니다. ${billingMonth} 관리비 청구서를 안내드립니다.<br/>
+          (검침 기간: ${reading.periodStart} ~ ${reading.periodEnd})
+        </div>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:18px;background:#f8fafc;border-radius:10px;overflow:hidden;">
+          <tr>
+            <td style="padding:14px 18px;font-size:13px;color:#64748b;font-weight:600;">이번 달 청구 총액 <span style="font-size:11px;color:#94a3b8;">(VAT 포함)</span></td>
+            <td style="padding:14px 18px;text-align:right;font-size:24px;font-weight:900;color:#3730a3;font-variant-numeric:tabular-nums;">${fmt(grandTotal)} 원</td>
+          </tr>
+        </table>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:22px;">
+          <tr style="background:#f1f5f9;">
+            <th align="left"  style="padding:10px 12px;font-size:12px;color:#475569;font-weight:700;border-bottom:2px solid #cbd5e1;">구분</th>
+            <th align="right" style="padding:10px 12px;font-size:12px;color:#475569;font-weight:700;border-bottom:2px solid #cbd5e1;">공급가액</th>
+            <th align="right" style="padding:10px 12px;font-size:12px;color:#475569;font-weight:700;border-bottom:2px solid #cbd5e1;">부가세</th>
+            <th align="right" style="padding:10px 12px;font-size:12px;color:#475569;font-weight:700;border-bottom:2px solid #cbd5e1;">합계</th>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;">임대료</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;">${fmt(tenant.rent)}</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;">${fmt(rentVat)}</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;font-weight:600;">${fmt(tenant.rent+rentVat)}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;">관리비</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;">${fmt(mgmtTotal)}</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;">${fmt(mgmtVat)}</td>
+            <td align="right" style="padding:10px 12px;font-size:13px;border-bottom:1px solid #e2e8f0;font-variant-numeric:tabular-nums;font-weight:600;">${fmt(mgmtTotal+mgmtVat)}</td>
+          </tr>
+          <tr style="background:#f8fafc;">
+            <td colspan="3" style="padding:12px;font-size:13px;font-weight:700;border-top:2px solid #cbd5e1;">합 계</td>
+            <td align="right" style="padding:12px;font-size:14px;font-weight:900;color:#3730a3;border-top:2px solid #cbd5e1;font-variant-numeric:tabular-nums;">${fmt(grandTotal)} 원</td>
+          </tr>
+        </table>
+        <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:8px;letter-spacing:0.5px;">◆ 관리비 산출 내역</div>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:18px;">
+          ${detailRow('전기 기본요금',`${fmt(reading.elecBill.basicFee)} ÷ 4층`,ed.elecPerFloor)}
+          ${detailRow('전력산업기반기금',`${fmt(reading.elecBill.powerFund)} ÷ 4층`,ed.powerFundPerFloor)}
+          ${detailRow('전기 사용요금',`${fmt(kwh[fKey]||0)} kWh / ${fmt(totalKwh)} kWh`,elecUsage)}
+          ${detailRow('전기안전대행료',`${fmt(reading.elecBill.safetyFee)} ÷ 4층`,ed.safetyPerFloor)}
+          ${detailRow('수도료',reading.waterCalc==='O'?'사용비율 배분':'미청구',waterFee)}
+          ${detailRow('관리비',tenant.mgmtFee!=null?`${fmt(tenant.mgmtFee)} (고정)`:`${tenant.mgmtArea}평 × 2,500원`,mgmtFee)}
+          ${elevatorFee>0?detailRow('승강기','',elevatorFee):''}
+          <tr style="background:#f8fafc;"><td colspan="2" style="padding:11px 12px;font-size:13px;font-weight:700;border-top:2px solid #cbd5e1;">관리비 합계 (부가세 별도)</td>
+          <td align="right" style="padding:11px 12px;font-size:13.5px;font-weight:900;color:#0f172a;border-top:2px solid #cbd5e1;font-variant-numeric:tabular-nums;">${fmt(mgmtTotal)} 원</td></tr>
+        </table>
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400e;line-height:1.7;">
+          ※ 본 메일은 관리비 청구서 안내입니다. 세금계산서는 별도로 발행해 드립니다.<br/>
+          ※ 문의: ${CO_TEL} · ${CO_EMAIL}
+        </div>
+      </td></tr>
+      <tr><td style="background:#f8fafc;padding:14px 28px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.7;border-top:1px solid #e2e8f0;">
+        ${CO_NAME} · ${CO_ADDR}<br/>
+        TEL ${CO_TEL} · FAX ${CO_FAX} · 사업자번호 ${CO_BIZ_NO}
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+// ─── 전자세금계산서 자료 엑셀 (홈택스 일괄발행 호환) ─────────────
+function exportTaxInvoice(reading, tenants, calc) {
+  if (typeof XLSX === 'undefined') { alert('XLSX 라이브러리 로드 실패. 새로고침 후 다시 시도해주세요.'); return; }
+  if (!tenants?.length) { alert('임차인 정보가 없습니다.'); return; }
+  const writeDate = (reading.periodEnd || '').replace(/-/g,''); // YYYYMMDD
+  const period    = `${reading.periodStart}~${reading.periodEnd}`;
+  const ym        = (reading.periodEnd || '').slice(0,7);
+
+  const calcTenant = (t) => {
+    const fKey = t.id==='wedgwood'?'w1':t.id==='taeha'?'t2':'y3';
+    const elecFee = calc.floorElec[fKey]||0;
+    const waterFee = reading.waterCalc==='O'?(calc.waterCharges[fKey]||0):0;
+    const mgmtFee = t.mgmtFee!=null?t.mgmtFee:t.mgmtArea*2500;
+    const elevatorFee = t.elevator||0;
+    const mgmtTotal = elecFee + waterFee + mgmtFee + elevatorFee;
+    const rentVat = Math.floor((t.rent||0)*0.1);
+    const mgmtVat = Math.floor(mgmtTotal*0.1);
+    return { mgmtTotal, rentVat, mgmtVat };
+  };
+
+  // 시트1: 발행 요약 (임차인당 1행) — 한눈에 보고 홈택스 입력
+  const summary = tenants.map(t => {
+    const { mgmtTotal, rentVat, mgmtVat } = calcTenant(t);
+    const supplyTotal = (t.rent||0) + mgmtTotal;
+    const vatTotal = rentVat + mgmtVat;
+    return {
+      '작성일자': writeDate,
+      '공급받는자_사업자번호': t.bizNo||'',
+      '공급받는자_상호': t.fullName||t.name||'',
+      '공급받는자_대표자': t.ceo||'',
+      '공급받는자_사업장주소': t.bizAddr||'',
+      '공급받는자_업태': t.bizType||'',
+      '공급받는자_종목': t.bizItem||'',
+      '공급받는자_이메일': t.email||'',
+      '임대료_공급가액': t.rent||0,
+      '임대료_세액': rentVat,
+      '관리비_공급가액': mgmtTotal,
+      '관리비_세액': mgmtVat,
+      '공급가액_합계': supplyTotal,
+      '세액_합계': vatTotal,
+      '총합계금액': supplyTotal + vatTotal,
+      '비고': period,
+    };
+  });
+
+  // 시트2: 품목 상세 (임차인당 2행 — 임대료, 관리비) — 홈택스 일괄발행 양식과 호환
+  const items = tenants.flatMap(t => {
+    const { mgmtTotal, rentVat, mgmtVat } = calcTenant(t);
+    const recipient = {
+      '공급자_사업자번호': CO_BIZ_NO,
+      '공급자_상호': CO_NAME,
+      '공급자_대표자': CO_CEO,
+      '공급자_주소': CO_ADDR,
+      '공급자_업태': CO_BIZ_TYPE,
+      '공급자_종목': CO_BIZ_ITEM,
+      '공급자_이메일': CO_EMAIL,
+      '공급받는자_사업자번호': t.bizNo||'',
+      '공급받는자_상호': t.fullName||t.name||'',
+      '공급받는자_대표자': t.ceo||'',
+      '공급받는자_사업장주소': t.bizAddr||'',
+      '공급받는자_업태': t.bizType||'',
+      '공급받는자_종목': t.bizItem||'',
+      '공급받는자_이메일': t.email||'',
+    };
+    return [
+      { '작성일자':writeDate, ...recipient, '품목일자':writeDate, '품목명':'임대료',
+        '규격':'', '수량':1, '단가':t.rent||0,
+        '공급가액':t.rent||0, '세액':rentVat, '품목비고':`${t.floor||''} ${period}`.trim() },
+      { '작성일자':writeDate, ...recipient, '품목일자':writeDate, '품목명':'관리비',
+        '규격':'', '수량':1, '단가':mgmtTotal,
+        '공급가액':mgmtTotal, '세액':mgmtVat, '품목비고':`${t.floor||''} ${period} (전기·수도·관리비 포함)`.trim() },
+    ];
+  });
+
+  // 시트3: 누락 정보 안내 (사업자번호 없는 임차인 표시)
+  const missing = tenants.filter(t => !t.bizNo).map(t => ({
+    '임차인': t.fullName||t.name||t.id,
+    '누락_항목': [!t.bizNo&&'사업자번호',!t.ceo&&'대표자',!t.bizAddr&&'사업장주소',!t.bizType&&'업태',!t.bizItem&&'종목',!t.email&&'이메일'].filter(Boolean).join(', '),
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(summary);
+  ws1['!cols'] = [{wch:10},{wch:14},{wch:24},{wch:10},{wch:30},{wch:10},{wch:14},{wch:24},{wch:13},{wch:11},{wch:13},{wch:11},{wch:13},{wch:11},{wch:14},{wch:24}];
+  XLSX.utils.book_append_sheet(wb, ws1, '발행요약');
+  const ws2 = XLSX.utils.json_to_sheet(items);
+  XLSX.utils.book_append_sheet(wb, ws2, '품목상세');
+  if (missing.length) {
+    const ws3 = XLSX.utils.json_to_sheet(missing);
+    ws3['!cols'] = [{wch:24},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, ws3, '⚠ 누락정보');
+  }
+  XLSX.writeFile(wb, `세금계산서자료_${ym||'export'}.xlsx`);
 }
 
 function getBillingNo(periodEnd) {
@@ -614,7 +808,7 @@ function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
         <TLLogo size={30} />
         <div>
           <div style={{ fontWeight:800, fontSize:14, letterSpacing:'-0.5px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:9, opacity:0.35, letterSpacing:'1px', marginTop:1 }}>MANAGEMENT SYSTEM v3.0</div>
+          <div style={{ fontSize:9, opacity:0.35, letterSpacing:'1px', marginTop:1 }}>MANAGEMENT SYSTEM v3.1</div>
         </div>
       </div>
       <nav style={{ display:'flex', gap:1, alignItems:'center', overflowX:'auto' }}>
@@ -1160,7 +1354,39 @@ td.l{text-align:left;}td.r{text-align:right;font-variant-numeric:tabular-nums;}
 // ─── Invoice Page ─────────────────────────────────────────────
 function InvoicePage({ reading, tenants, calc }) {
   const [active,setActive]=useState(0);
+  const [sending,setSending]=useState(false);
   const printRef=useRef(null); // InvoiceCard가 여기에 handlePrint를 등록
+
+  const sendInvoiceEmails=async()=>{
+    const missing=tenants.filter(t=>!t.email);
+    if(missing.length){
+      if(!window.confirm(`이메일 미등록 임차인이 ${missing.length}곳 있습니다:\n${missing.map(t=>'- '+t.name).join('\n')}\n\n해당 임차인은 건너뜁니다. 계속할까요?`)) return;
+    }
+    const targets=tenants.filter(t=>t.email);
+    if(targets.length===0){ alert('이메일이 등록된 임차인이 없습니다. 임차인 현황에서 이메일을 먼저 등록해주세요.'); return; }
+    const billingMonth=getBillingMonth(reading.periodEnd);
+    if(!window.confirm(`${billingMonth} 청구서를 ${targets.length}곳에 일괄 발송합니다.\n\n${targets.map(t=>`• ${t.name} → ${t.email}`).join('\n')}\n\n발송하시겠습니까?`)) return;
+
+    setSending(true);
+    try {
+      const messages=targets.map(t=>({
+        to:t.email,
+        subject:`[${CO_NAME}] ${billingMonth} 관리비 청구서 안내 (${t.name})`,
+        html:buildInvoiceEmailHtml(t,reading,calc),
+      }));
+      const res=await fetch('/api/send-invoice',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ messages, bcc:INVOICE_BCC, fromName:CO_NAME }),
+      });
+      const data=await res.json();
+      if(data.ok) alert(`✓ 발송 완료: ${data.sent}/${data.total}건`);
+      else alert(`⚠ 일부 발송 실패: ${data.sent}/${data.total}건 성공\n\n${(data.results||[]).filter(r=>!r.ok).map(r=>`✗ ${r.to}: ${r.error}`).join('\n')}`);
+    } catch(e){
+      alert(`⚠ 발송 요청 실패: ${e.message}\n\n환경변수(GMAIL_USER, GMAIL_APP_PASSWORD)가 Vercel에 설정되어 있는지 확인해주세요.`);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div>
@@ -1174,10 +1400,18 @@ function InvoicePage({ reading, tenants, calc }) {
             </button>
           ))}
         </div>
-        {/* PDF 출력 버튼 (상단) */}
-        <div style={{ display:'flex', gap:8 }}>
+        {/* PDF 출력 + 세금계산서 자료 + 이메일 발송 */}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <button onClick={()=>printRef.current?.(false)} style={btn('primary')}>🎨 컬러 PDF 출력</button>
           <button onClick={()=>printRef.current?.(true)}  style={btn('secondary')}>⬜ 흑백 PDF 출력</button>
+          <button onClick={()=>exportTaxInvoice(reading,tenants,calc)}
+            style={{...btn('secondary'),background:'#10B981',color:'#fff'}}
+            title="홈택스 일괄발행용 엑셀 (전 임차인 임대료+관리비 자동)">📋 전자세금계산서 자료</button>
+          <button onClick={sendInvoiceEmails} disabled={sending}
+            style={{...btn('secondary'),background:sending?'#94a3b8':'#3730a3',color:'#fff',cursor:sending?'wait':'pointer'}}
+            title={`임차인 ${tenants.filter(t=>t.email).length}곳에 청구서 이메일 일괄 발송 (BCC: ${INVOICE_BCC})`}>
+            {sending?'📤 발송 중…':`📧 청구서 일괄 발송 (${tenants.filter(t=>t.email).length})`}
+          </button>
         </div>
       </div>
       <InvoiceCard
@@ -1886,6 +2120,20 @@ function TenantPage({ tenants, setTenants, role }) {
                         <input type="date" value={t[field]||''} onChange={e=>upField(t.id,field,e.target.value)} style={{ ...baseInput, flex:1 }} />
                       </div>
                     ))}
+                    <div style={{ marginTop:6, paddingTop:10, borderTop:`1px dashed ${C.border}`, fontSize:11, color:C.textHint, letterSpacing:0.5 }}>전자세금계산서 정보</div>
+                    {[
+                      ['사업자번호','bizNo','000-00-00000'],
+                      ['대표자','ceo','홍길동'],
+                      ['업태','bizType','제조'],
+                      ['종목','bizItem','전자제품'],
+                      ['사업장 주소','bizAddr','서울특별시 …'],
+                      ['수신 이메일','email','tax@example.com'],
+                    ].map(([label,field,ph])=>(
+                      <div key={field} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:12, color:C.textSub, minWidth:72, flexShrink:0 }}>{label}</span>
+                        <input type="text" placeholder={ph} value={t[field]||''} onChange={e=>upField(t.id,field,e.target.value)} style={{ ...baseInput, flex:1 }} />
+                      </div>
+                    ))}
                     <div style={{ display:'flex', gap:8, marginTop:4 }}>
                       <button onClick={save} style={btn('primary')}>저장</button>
                       <button onClick={cancelEdit} style={btn('ghost')}>취소</button>
@@ -1917,10 +2165,18 @@ function TenantPage({ tenants, setTenants, role }) {
                       </div>
                     </div>
 
-                    <div style={{ background:warnBg, border:`1px solid ${warnBrd}`, borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                    <div style={{ background:warnBg, border:`1px solid ${warnBrd}`, borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                       <span style={{ fontSize:12, color:warnColor, fontWeight:600 }}>{warnText}</span>
                       <DdayBadge dateStr={t.contractEnd} />
                     </div>
+                    {isPrivileged && (
+                      <div style={{ fontSize:11, color:t.bizNo?C.textSub:C.red, marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
+                        {t.bizNo
+                          ? <><span style={{color:C.green}}>●</span><span>세금계산서 정보 등록 ({t.bizNo})</span></>
+                          : <><span>○</span><span>세금계산서 정보 미등록 — 수정에서 입력</span></>
+                        }
+                      </div>
+                    )}
 
                     <div style={{ display:'flex', gap:8, marginTop:12 }}>
                       {isPrivileged && <button onClick={()=>setEditing(t.id)} style={{ ...btn('secondary'), flex:1, justifyContent:'center' }}>✏ 수정</button>}
@@ -4164,7 +4420,7 @@ function VoucherPage({ role }) {
   const [vType,setVType]=useState('income');
   const [form,setForm]=useState(()=>emptyVoucherForm('income'));
   const [editId,setEditId]=useState(null);
-  const [filter,setFilter]=useState({type:'all',month:''});
+  const [filter,setFilter]=useState({type:'all',month:'',q:''});
   const [flash,setFlash]=useState('');
   const authorName=store.get('tl_user_name')||role;
 
@@ -4225,11 +4481,17 @@ function VoucherPage({ role }) {
     load();
   },[]);
 
-  const getVNo=(type)=>{
+  const getVNo=(type,dateStr)=>{
     const prefix=type==='income'?'입':type==='expense'?'출':'분';
-    const yy=new Date().getFullYear()%100;
-    const count=vouchers.filter(v=>v.type===type).length+1;
-    return `${prefix}-${yy}${String(count).padStart(3,'0')}`;
+    const yy=Number((dateStr||form.date||'').slice(0,4))||new Date().getFullYear();
+    const yy2=yy%100;
+    // 같은 연도+타입의 최대 번호 + 1 (삭제 후에도 충돌 없음)
+    const re=new RegExp(`^${prefix}-${yy2}(\\d+)$`);
+    const maxSeq=vouchers
+      .filter(v=>v.type===type&&(v.date||'').startsWith(String(yy)))
+      .map(v=>{const m=String(v.vno||'').match(re);return m?Number(m[1]):0;})
+      .reduce((a,b)=>Math.max(a,b),0);
+    return `${prefix}-${yy2}${String(maxSeq+1).padStart(3,'0')}`;
   };
 
   const newForm=(type)=>{ setVType(type); setForm({...emptyVoucherForm(type),vno:getVNo(type)}); setEditId(null); };
@@ -4282,10 +4544,67 @@ function VoucherPage({ role }) {
   };
 
   const deleteV=async(id)=>{
-    if(!window.confirm('삭제하시겠습니까?')) return;
+    const v=vouchers.find(x=>x.id===id);
+    const total=v?computeTotal(v.rows,v.type):0;
+    const meta=v?VOUCHER_TYPES[v.type]:null;
+    const label=v?`${meta?.short||''} ${v.vno||''} (${v.date||''}) · ${fmt(total)}원`:'';
+    if(!window.confirm(`다음 전표를 삭제할까요?\n\n${label}\n\n이 작업은 되돌릴 수 없습니다.`)) return;
     const{error}=await supabase.from('vouchers').delete().eq('id',id);
     if(error){ msg('⚠ 삭제 실패: '+error.message); return; }
     setVouchers(prev=>prev.filter(vv=>vv.id!==id));
+    msg('✓ 전표가 삭제됐습니다.');
+  };
+
+  const exportExcel=()=>{
+    if(typeof XLSX==='undefined'){ msg('⚠ XLSX 라이브러리 로드 실패. 새로고침 후 다시 시도해주세요.'); return; }
+    if(displayV.length===0){ msg('⚠ 내보낼 전표가 없습니다.'); return; }
+    const apprName=(v,slot)=>v.approvals?.[slot]?.name||'';
+    const rows=displayV.flatMap(v=>{
+      const typeLabel=VOUCHER_TYPES[v.type]?.short||v.type;
+      const common={ 일자:v.date||'', 전표번호:v.vno||'', 구분:typeLabel,
+        작성자:v.author||'', 담당:apprName(v,'담당'), 검토:apprName(v,'검토'), 확인:apprName(v,'확인') };
+      return (v.rows||[]).map(r=>{
+        if(v.type==='income'){
+          return { ...common, 차변과목:'', 차변금액:'', 대변과목:r.acct||'', 대변금액:Number(r.amount)||'',
+            거래처:r.payee||'', 적요:r.note||'' };
+        }
+        if(v.type==='expense'){
+          return { ...common, 차변과목:r.acct||'', 차변금액:Number(r.amount)||'', 대변과목:'', 대변금액:'',
+            거래처:r.payee||'', 적요:r.note||'' };
+        }
+        return { ...common, 차변과목:r.dr_acct||'', 차변금액:Number(r.dr_amt)||'',
+          대변과목:r.cr_acct||'', 대변금액:Number(r.cr_amt)||'',
+          거래처:'', 적요:[r.dr_note,r.cr_note].filter(Boolean).join(' / ') };
+      });
+    });
+    const cols=['일자','전표번호','구분','차변과목','차변금액','대변과목','대변금액','거래처','적요','작성자','담당','검토','확인'];
+    const ordered=rows.map(r=>{const o={};cols.forEach(k=>o[k]=r[k]??'');return o;});
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.json_to_sheet(ordered,{header:cols});
+    ws['!cols']=[{wch:12},{wch:11},{wch:8},{wch:14},{wch:13},{wch:14},{wch:13},{wch:16},{wch:30},{wch:10},{wch:10},{wch:10},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'전표내역');
+    // 월별 요약
+    const monthly={};
+    displayV.forEach(v=>{
+      const ym=(v.date||'').slice(0,7); if(!ym) return;
+      if(!monthly[ym]) monthly[ym]={입금:0,출금:0,대체:0};
+      const t=computeTotal(v.rows,v.type);
+      if(v.type==='income') monthly[ym].입금+=t;
+      else if(v.type==='expense') monthly[ym].출금+=t;
+      else monthly[ym].대체+=t;
+    });
+    const sumRows=Object.keys(monthly).sort().map(ym=>({
+      월:ym, 입금:monthly[ym].입금, 출금:monthly[ym].출금,
+      순액:monthly[ym].입금-monthly[ym].출금, 대체:monthly[ym].대체 }));
+    if(sumRows.length){
+      const ws2=XLSX.utils.json_to_sheet(sumRows,{header:['월','입금','출금','순액','대체']});
+      ws2['!cols']=[{wch:10},{wch:14},{wch:14},{wch:14},{wch:14}];
+      XLSX.utils.book_append_sheet(wb,ws2,'월별요약');
+    }
+    const today=new Date().toISOString().slice(0,10);
+    const tag=filter.month?`_${filter.month}`:filter.type!=='all'?`_${VOUCHER_TYPES[filter.type]?.short||filter.type}`:'';
+    XLSX.writeFile(wb,`전표${tag}_${today}.xlsx`);
+    msg(`✓ ${displayV.length}건 내보내기 완료`);
   };
 
   const handlePrint=(v)=>{
@@ -4414,10 +4733,17 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:20px;backgro
   const displayV=vouchers.filter(v=>{
     if(filter.type!=='all'&&v.type!==filter.type) return false;
     if(filter.month&&!v.date.startsWith(filter.month)) return false;
+    if(filter.q){
+      const q=filter.q.toLowerCase();
+      const hay=[v.vno,v.summary,...(v.rows||[]).flatMap(r=>[r.acct,r.payee,r.note,r.dr_acct,r.cr_acct,r.dr_note,r.cr_note])]
+        .filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
     return true;
   });
   const totalIncome=displayV.filter(v=>v.type==='income').reduce((s,v)=>s+computeTotal(v.rows,'income'),0);
   const totalExpense=displayV.filter(v=>v.type==='expense').reduce((s,v)=>s+computeTotal(v.rows,'expense'),0);
+  const netTotal=totalIncome-totalExpense;
 
   return (
     <div>
@@ -4435,7 +4761,9 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:20px;backgro
             {Object.entries(VOUCHER_TYPES).map(([key,m])=>(
               <button key={key} type="button" onClick={()=>{
                 if(vType===key) return;
-                if(form.rows.some(rowHasContent)&&!editId){
+                if(editId){
+                  if(!window.confirm('편집 중인 전표를 종류 변경하면 편집이 취소됩니다. 계속할까요?')) return;
+                } else if(form.rows.some(rowHasContent)){
                   if(!window.confirm('작성 중인 내용이 사라집니다. 전표 종류를 변경할까요?')) return;
                 }
                 newForm(key);
@@ -4565,9 +4893,14 @@ body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:20px;backgro
               <option value="transfer">대체전표</option>
             </select>
             <input type="month" value={filter.month} onChange={e=>setFilter(f=>({...f,month:e.target.value}))} style={{...baseInput,width:'auto',background:C.white}}/>
-            {(filter.type!=='all'||filter.month)&&<button onClick={()=>setFilter({type:'all',month:''})} style={{...btn('ghost'),height:34,fontSize:12}}>필터 초기화</button>}
-            {totalIncome>0&&<span style={{fontSize:12.5,color:'#DC2626',fontWeight:600,marginLeft:'auto'}}>입금 {fmt(totalIncome)}원</span>}
-            {totalExpense>0&&<span style={{fontSize:12.5,color:'#1D4ED8',fontWeight:600}}>출금 {fmt(totalExpense)}원</span>}
+            <input type="text" placeholder="🔍 거래처·적요·번호 검색" value={filter.q} onChange={e=>setFilter(f=>({...f,q:e.target.value}))} style={{...baseInput,width:220,background:C.white}}/>
+            {(filter.type!=='all'||filter.month||filter.q)&&<button onClick={()=>setFilter({type:'all',month:'',q:''})} style={{...btn('ghost'),height:34,fontSize:12}}>필터 초기화</button>}
+            <button onClick={exportExcel} style={{...btn('secondary'),height:34,fontSize:12,background:'#10B981',color:'#fff'}} title="현재 필터 결과를 엑셀로 내보냅니다">📊 엑셀 ({displayV.length})</button>
+            <div style={{display:'flex',gap:14,marginLeft:'auto',alignItems:'center',flexWrap:'wrap'}}>
+              {totalIncome>0&&<span style={{fontSize:12.5,color:'#DC2626',fontWeight:600}}>입금 {fmt(totalIncome)}원</span>}
+              {totalExpense>0&&<span style={{fontSize:12.5,color:'#1D4ED8',fontWeight:600}}>출금 {fmt(totalExpense)}원</span>}
+              {(totalIncome>0||totalExpense>0)&&<span style={{fontSize:12.5,color:netTotal>=0?'#15803D':'#C53030',fontWeight:700,padding:'3px 10px',background:netTotal>=0?'#F0FDF4':'#FEF2F2',border:`1px solid ${netTotal>=0?'#BBF7D0':'#FECACA'}`,borderRadius:6}}>순액 {netTotal>=0?'+':''}{fmt(netTotal)}원</span>}
+            </div>
           </div>
           <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:14,overflow:'hidden',boxShadow:sh.card}}>
             <div style={{overflowX:'auto'}}>
@@ -4934,7 +5267,7 @@ function PageFooter() {
         <div style={{ marginBottom:3, fontSize:11 }}>{CO_ADDR}</div>
         <div style={{ marginBottom:10, fontSize:11 }}>Tel: {CO_TEL}&nbsp;&nbsp;|&nbsp;&nbsp;Fax: {CO_FAX}</div>
         <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', paddingTop:10, fontSize:10, color:'rgba(255,255,255,0.3)' }}>
-          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v3.0
+          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD. All Rights Reserved. &nbsp;|&nbsp; 관리비 청구 시스템 v3.1
         </div>
       </div>
     </footer>
@@ -5034,10 +5367,9 @@ export default function App() {
     try {
       const provider=new GoogleAuthProvider();
       provider.setCustomParameters({ prompt:'select_account' });
-      // 팝업 + 8초 타임아웃 (네트워크 막힘 방어)
-      const popupPromise=signInWithPopup(auth,provider);
-      const timeoutPromise=new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),12000));
-      const cred=await Promise.race([popupPromise,timeoutPromise]);
+      // 타임아웃 제거 — 12초 race가 정상 인증을 끊는 버그였음.
+      // 팝업 차단은 Firebase가 'auth/popup-blocked' 던져줌.
+      const cred=await signInWithPopup(auth,provider);
 
       // localStorage 기반 프로필 (Firestore 호출 없음)
       const users=store.get('tl_fb_users')||{};
