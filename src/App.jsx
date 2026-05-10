@@ -1365,7 +1365,7 @@ function InvoicePage({ reading, tenants, calc }) {
     const targets=tenants.filter(t=>t.email);
     if(targets.length===0){ alert('이메일이 등록된 임차인이 없습니다. 임차인 현황에서 이메일을 먼저 등록해주세요.'); return; }
     const billingMonth=getBillingMonth(reading.periodEnd);
-    if(!window.confirm(`${billingMonth} 청구서를 ${targets.length}곳에 일괄 발송합니다.\n\n${targets.map(t=>`• ${t.name} → ${t.email}`).join('\n')}\n\n발송하시겠습니까?`)) return;
+    if(!window.confirm(`${billingMonth} 청구서를 ${targets.length}곳에 일괄 발송합니다.\n\n${targets.map(t=>`• ${t.name} → ${t.email}`).join('\n')}\n\n📋 BCC (사본 수신): ${INVOICE_BCC}\n\n발송하시겠습니까?`)) return;
 
     setSending(true);
     try {
