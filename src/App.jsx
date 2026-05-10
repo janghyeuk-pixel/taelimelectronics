@@ -38,7 +38,7 @@ const INITIAL_TENANTS = [
   { id:'yuyeon',  name:'유연어패럴',  fullName:'유연어패럴',            floor:'3층', suffix:'03', rent:4125000, mgmtArea:200, elevator:44353,  deposit:35000000, area:481.3,  contractStart:'', contractEnd:'', email:'janghyeuk@nate.com' },
 ];
 // 청구서 발송 시 본인이 사본 받을 BCC 주소
-const INVOICE_BCC = 'taelimmotoro@outlook.com';
+const INVOICE_BCC = 'taelimmotor@outlook.com';
 
 const INITIAL_ACCOUNTS = {
   acct018: { label:'보통018', prev:0, curr:0 },
