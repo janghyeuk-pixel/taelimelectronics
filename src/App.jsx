@@ -1380,7 +1380,8 @@ function InvoicePage({ reading, tenants, calc }) {
       });
       const data=await res.json();
       if(data.ok) alert(`✓ 발송 완료: ${data.sent}/${data.total}건`);
-      else alert(`⚠ 일부 발송 실패: ${data.sent}/${data.total}건 성공\n\n${(data.results||[]).filter(r=>!r.ok).map(r=>`✗ ${r.to}: ${r.error}`).join('\n')}`);
+      else if(data.error&&!data.results) alert(`⚠ 서버 오류\n\n${data.error}\n\nVercel 환경변수(GMAIL_USER, GMAIL_APP_PASSWORD)와 배포 상태를 확인해주세요.`);
+      else alert(`⚠ 일부 발송 실패: ${data.sent||0}/${data.total||targets.length}건 성공\n\n${(data.results||[]).filter(r=>!r.ok).map(r=>`✗ ${r.to}: ${r.error}`).join('\n')||'(상세 정보 없음)'}`);
     } catch(e){
       alert(`⚠ 발송 요청 실패: ${e.message}\n\n환경변수(GMAIL_USER, GMAIL_APP_PASSWORD)가 Vercel에 설정되어 있는지 확인해주세요.`);
     } finally {
