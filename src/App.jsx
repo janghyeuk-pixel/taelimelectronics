@@ -2785,6 +2785,45 @@ function FinancePage({ role }) {
     persistAccounts(next);
   };
 
+  // 번호 정리 (수동) + 되돌리기 한 단계
+  const [undoState,setUndoState]=useState(()=>store.get('tl_finance_txns_undo')||null);
+  const hasUndoForMonth = undoState && undoState.month===month;
+  const renumberMonth=()=>{
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
+    const rows=(ymData.rows||[]);
+    if(rows.length===0){ alert('정리할 내역이 없습니다.'); return; }
+    if(!confirm(`${monthLabel} 입출금 내역 ${rows.length}건의 번호를 날짜순으로 다시 매기시겠습니까?\n(되돌리기 버튼이 나옵니다)`)) return;
+    const undo={month, rows:rows.map(r=>({...r})), at:Date.now()};
+    setUndoState(undo); store.set('tl_finance_txns_undo',undo);
+    const cleaned=sortAndRenumber(rows);
+    const nd={...txnData,[month]:{...ymData, rows:cleaned}};
+    setTxnData(nd); store.set('tl_finance_txns',nd); setAutoSaveAt(new Date());
+  };
+  const undoRenumber=()=>{
+    if(!hasUndoForMonth) return;
+    if(!confirm('번호 정리 직전 상태로 되돌리시겠습니까?')) return;
+    const nd={...txnData,[month]:{...ymData, rows:undoState.rows}};
+    setTxnData(nd); store.set('tl_finance_txns',nd); setAutoSaveAt(new Date());
+    setUndoState(null); store.set('tl_finance_txns_undo',null);
+  };
+
+  // 자동 번호 정리: 월 진입 시 1회. 번호가 어긋나 있으면 백업 후 silent 재정렬.
+  useEffect(()=>{
+    if(isLocked) return;
+    const rows=(txnData[month]?.rows)||[];
+    if(rows.length===0) return;
+    const cleaned=sortAndRenumber(rows);
+    const same=rows.every((r,i)=>r.no===cleaned[i]?.no && r.id===cleaned[i]?.id);
+    if(same) return;
+    // 같은 달에 이미 undo 백업이 있으면 덮어쓰지 않음 (수동 후 자동이 백업 날리는 거 방지)
+    if(undoState && undoState.month===month) return;
+    const undo={month, rows:rows.map(r=>({...r})), at:Date.now()};
+    setUndoState(undo); store.set('tl_finance_txns_undo',undo);
+    const nd={...txnData,[month]:{...(txnData[month]||{}), rows:cleaned}};
+    setTxnData(nd); store.set('tl_finance_txns',nd);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[month]);
+
   const IMPORT_BTNS=[
     {key:'acct018', label:'보통018 가져오기', color:'#1d4ed8'},
     {key:'acct032', label:'보통032 가져오기', color:'#3730a3'},
@@ -3057,6 +3096,12 @@ function FinancePage({ role }) {
         <div style={{ marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <button onClick={addRow} disabled={isLocked} style={{ ...btn('navyGhost'), opacity:isLocked?0.4:1, cursor:isLocked?'not-allowed':'pointer' }}>+ 행 추가</button>
+            <button onClick={renumberMonth} disabled={isLocked} title="이 달의 모든 행을 날짜순으로 정렬하고 번호를 001/002/003...으로 다시 매김"
+              style={{ ...btn('secondary'), opacity:isLocked?0.4:1, cursor:isLocked?'not-allowed':'pointer' }}>🔢 번호 정리</button>
+            {hasUndoForMonth && (
+              <button onClick={undoRenumber} title="번호 정리 직전 상태로 복원"
+                style={{ ...btn('amber'), background:C.amberBg, color:C.amber, border:`1px solid ${C.amberBorder}` }}>↶ 되돌리기</button>
+            )}
             {acctFilter==='all' && (
               <select value={defaultAcct} onChange={e=>setDefaultAcct(e.target.value)} style={{ ...baseInput, width:'auto', padding:'6px 10px', fontSize:12, cursor:'pointer' }}>
                 {acctKeys.map(k=><option key={k} value={k}>새 행 → {accounts[k].label}</option>)}
@@ -3601,7 +3646,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
 
       <div style={CARD}>
         <SecHead icon="🔐" title="비밀번호 변경" />
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div style={{ display:'grid', gridTemplateColumns: role==='master'?'1fr 1fr 1fr':'1fr 1fr', gap:20 }}>
           <div>
             <div style={{ fontSize:12.5, fontWeight:600, color:C.navy, marginBottom:10 }}>👤 직원 비밀번호</div>
             {[['새 비밀번호',pw1,setPw1],['비밀번호 확인',pw2,setPw2]].map(([lbl,val,set])=>(
