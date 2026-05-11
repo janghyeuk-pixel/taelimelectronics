@@ -584,7 +584,7 @@ function RegisterPage({ onBack, onDone }) {
       const isFirst=Object.keys(users).length===0;
       const empNo=`EMP-${String(Object.keys(users).length+1).padStart(3,'0')}`;
       const profile={ name:form.name.trim(), email:form.email.trim(), dept:form.dept.trim(),
-        role:isFirst?'master':'staff', approved:true, empNo,
+        role:isFirst?'master':'guest', approved:true, empNo,
         createdAt:new Date().toISOString() };
       users[cred.user.uid]=profile;
       store.set('tl_fb_users',users);
@@ -613,9 +613,9 @@ function RegisterPage({ onBack, onDone }) {
     <div style={{ display:'flex', minHeight:'100vh', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#06061a,#0f0f2e,#0a1628)', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif" }}>
       <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, padding:'48px 40px', width:380, textAlign:'center' }}>
         <div style={{ fontSize:48, marginBottom:20 }}>✅</div>
-        <div style={{ fontSize:20, fontWeight:800, color:'#fff', marginBottom:10 }}>가입 요청 완료!</div>
+        <div style={{ fontSize:20, fontWeight:800, color:'#fff', marginBottom:10 }}>가입 완료!</div>
         <div style={{ fontSize:13, color:'rgba(255,255,255,0.5)', lineHeight:1.9, marginBottom:28 }}>
-          관리자 승인 후 로그인 가능합니다.<br/>대표님께 문의해 주세요.
+          바로 로그인하실 수 있습니다.<br/>(초기 권한은 게스트 — 사장님께 권한 상향을 요청하세요)
         </div>
         <button onClick={onBack} style={{ background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'13px 32px', fontSize:14, fontWeight:700, color:'#fff', cursor:'pointer' }}>로그인으로 돌아가기</button>
       </div>
@@ -794,8 +794,15 @@ function LoginPage({ onLogin, onGoogleLogin }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────
+const ALL_TABS=[['home','홈'],['gallery','갤러리'],['board','게시판'],['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
+function tabsForRole(role){
+  if(role==='guest') return [['home','홈'],['gallery','갤러리'],['board','게시판'],['notice','공문']];
+  if(role==='staff') return [['home','홈'],['gallery','갤러리'],['board','게시판'],['notice','공문'],['attendance','출퇴근']];
+  if(role==='admin') return ALL_TABS.filter(([id])=>id!=='settings');
+  return ALL_TABS;
+}
 function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
-  const baseTabs=[['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
+  const baseTabs=tabsForRole(role);
   const roleStyle={
     master:{ icon:'🔑', label:'MASTER', bg:'rgba(167,139,250,0.25)', bd:'rgba(167,139,250,0.5)', fg:'#c4b5fd' },
     admin: { icon:'👑', label:'대표/이사', bg:'rgba(250,204,21,0.25)', bd:'rgba(250,204,21,0.5)', fg:'#fde047' },
@@ -833,6 +840,307 @@ function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
         </div>
       </nav>
     </header>
+  );
+}
+
+// ─── Home Page (환영 + 환율 + 뉴스 + 최근 공지·사진) ─────────
+function HomePage({ role, setPage }) {
+  const photos = store.get('tl_gallery_photos')||[];
+  const notices = store.get('tl_home_notices')||[];
+  const fmtDate = (iso)=>{ const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; };
+
+  const [rates,setRates] = useState(null);
+  const [ratesDate,setRatesDate] = useState('');
+  const [ratesErr,setRatesErr] = useState(false);
+  useEffect(()=>{
+    // frankfurter.app — 무료, 키 불필요, ECB 데이터. KRW 기준으로 받아서 역수.
+    fetch('https://api.frankfurter.app/latest?base=KRW&symbols=USD,EUR,JPY,CNY')
+      .then(r=>r.json())
+      .then(d=>{
+        const inv={};
+        Object.entries(d.rates||{}).forEach(([k,v])=>{ inv[k]=v>0?1/v:0; });
+        // JPY는 통상 100엔당 표시
+        if(inv.JPY) inv.JPY100 = inv.JPY*100;
+        setRates(inv); setRatesDate(d.date||'');
+      })
+      .catch(()=>setRatesErr(true));
+  },[]);
+
+  const fmtRate=(v)=>v?Math.round(v).toLocaleString('ko-KR'):'-';
+  const CCY=[
+    { code:'USD', label:'미국 (1 USD)', icon:'🇺🇸', val:rates?.USD },
+    { code:'EUR', label:'유럽 (1 EUR)', icon:'🇪🇺', val:rates?.EUR },
+    { code:'JPY', label:'일본 (100 JPY)', icon:'🇯🇵', val:rates?.JPY100 },
+    { code:'CNY', label:'중국 (1 CNY)', icon:'🇨🇳', val:rates?.CNY },
+  ];
+
+  const NEWS_SITES=[
+    { name:'네이버 뉴스', url:'https://news.naver.com', icon:'📰', color:'#03c75a', bg:'#e6f7ec' },
+    { name:'다음 뉴스', url:'https://news.daum.net', icon:'📺', color:'#0086d4', bg:'#e0f2fe' },
+    { name:'연합뉴스', url:'https://www.yna.co.kr', icon:'🌐', color:'#003876', bg:'#dbeafe' },
+    { name:'YTN', url:'https://www.ytn.co.kr', icon:'📡', color:'#e60012', bg:'#fee2e2' },
+    { name:'조선일보', url:'https://www.chosun.com', icon:'📃', color:'#1a1a1a', bg:'#f3f4f6' },
+    { name:'중앙일보', url:'https://www.joongang.co.kr', icon:'📄', color:'#cf2027', bg:'#fee2e2' },
+    { name:'한겨레', url:'https://www.hani.co.kr', icon:'📓', color:'#00aaff', bg:'#e0f2fe' },
+    { name:'BBC News', url:'https://www.bbc.com/news', icon:'🌍', color:'#bb1919', bg:'#fee2e2' },
+  ];
+
+  return (
+    <div>
+      <div style={{ background:`linear-gradient(135deg,${C.navyDark},#1e1b4b)`, color:'#fff', borderRadius:18, padding:'36px 32px', marginBottom:18, boxShadow:sh.card, position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', right:-40, top:-40, width:220, height:220, background:'radial-gradient(circle, rgba(99,102,241,0.4), transparent 70%)', borderRadius:'50%' }} />
+        <div style={{ position:'absolute', left:-30, bottom:-30, width:160, height:160, background:'radial-gradient(circle, rgba(167,139,250,0.25), transparent 70%)', borderRadius:'50%' }} />
+        <div style={{ position:'relative', zIndex:1 }}>
+          <div style={{ fontSize:11, letterSpacing:'3px', opacity:0.55, marginBottom:10 }}>TAE LIM ELECTRONICS CO., LTD.</div>
+          <div style={{ fontSize:28, fontWeight:900, letterSpacing:'-0.5px', marginBottom:8 }}>태림전자공업㈜</div>
+          <div style={{ fontSize:13, opacity:0.7, lineHeight:1.8 }}>{CO_ADDR}<br/>Tel {CO_TEL} · Fax {CO_FAX}</div>
+        </div>
+      </div>
+
+      {/* 환율 */}
+      <div style={CARD}>
+        <SecHead icon="💱" title="오늘의 환율 (KRW 기준)" action={
+          <span style={{ fontSize:11, color:C.textHint }}>
+            {ratesErr?'⚠ 환율 데이터를 가져오지 못했습니다':ratesDate?`기준일 ${ratesDate} · ECB`:'불러오는 중…'}
+          </span>
+        } />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10 }}>
+          {CCY.map(c=>(
+            <div key={c.code} style={{ background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'14px 16px' }}>
+              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4, display:'flex', alignItems:'center', gap:6 }}>
+                <span style={{ fontSize:14 }}>{c.icon}</span>{c.label}
+              </div>
+              <div style={{ fontSize:20, fontWeight:800, color:C.navyDark, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
+                {fmtRate(c.val)} <span style={{ fontSize:12, color:C.textMid, fontWeight:600 }}>원</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 주요 뉴스 */}
+      <div style={CARD}>
+        <SecHead icon="🗞️" title="주요 뉴스" action={<span style={{ fontSize:11, color:C.textHint }}>새 탭에서 열림</span>} />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
+          {NEWS_SITES.map(n=>(
+            <a key={n.name} href={n.url} target="_blank" rel="noopener noreferrer"
+              style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', background:n.bg, border:`1px solid ${n.color}22`, borderRadius:10, textDecoration:'none', transition:'transform 0.15s, box-shadow 0.15s' }}
+              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; }}
+              onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}>
+              <span style={{ fontSize:20 }}>{n.icon}</span>
+              <span style={{ fontSize:13, fontWeight:700, color:n.color }}>{n.name}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* 게시판 + 갤러리 미리보기 */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+        <div style={{ ...CARD, marginBottom:0, cursor:'pointer' }} onClick={()=>setPage('board')}>
+          <SecHead icon="📢" title="게시판" action={<span style={{ fontSize:11, color:C.textHint }}>전체 보기 →</span>} />
+          {notices.length===0 ? (
+            <div style={{ fontSize:12, color:C.textHint, padding:'14px 0' }}>등록된 공지사항이 없습니다.</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {notices.slice(0,3).map(n=>(
+                <div key={n.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, padding:'6px 0', borderBottom:`1px dashed ${C.border}` }}>
+                  <span style={{ fontSize:12.5, color:C.navy, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.title||'(제목 없음)'}</span>
+                  <span style={{ fontSize:11, color:C.textHint, flexShrink:0 }}>{fmtDate(n.createdAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ ...CARD, marginBottom:0, cursor:'pointer' }} onClick={()=>setPage('gallery')}>
+          <SecHead icon="📷" title="갤러리" action={<span style={{ fontSize:11, color:C.textHint }}>전체 보기 →</span>} />
+          {photos.length===0 ? (
+            <div style={{ fontSize:12, color:C.textHint, padding:'14px 0' }}>등록된 사진이 없습니다.</div>
+          ) : (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:6 }}>
+              {photos.slice(0,3).map(p=>(
+                <div key={p.id} style={{ aspectRatio:'1/1', borderRadius:6, overflow:'hidden', background:'#f1f5f9' }}>
+                  <img src={p.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Gallery Page (사진 갤러리) ─────────────────────────────
+function GalleryPage({ role }) {
+  const canEdit = role==='master'||role==='admin';
+  const isMaster = role==='master';
+  const [photos,setPhotos] = useState(()=>store.get('tl_gallery_photos')||[]);
+  const [viewer,setViewer] = useState(null);
+  const fileRef = useRef(null);
+
+  const compressImage = (file)=>new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const MAX_W = 1400;
+        const ratio = Math.min(1, MAX_W/img.width);
+        const w = Math.round(img.width*ratio);
+        const h = Math.round(img.height*ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.82));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const addPhotos = async(files)=>{
+    if(!files||!files.length) return;
+    const adds = [];
+    for(const file of Array.from(files)){
+      if(!file.type.startsWith('image/')) continue;
+      try {
+        const dataUrl = await compressImage(file);
+        adds.push({ id:Date.now()+Math.random(), src:dataUrl, caption:'', uploadedAt:new Date().toISOString() });
+      } catch(err){ alert('사진 처리 실패: '+(err.message||err)); }
+    }
+    if(adds.length){
+      const next = [...adds, ...photos];
+      setPhotos(next); store.set('tl_gallery_photos',next);
+    }
+    if(fileRef.current) fileRef.current.value='';
+  };
+  const removePhoto = (id)=>{
+    if(!confirm('이 사진을 삭제할까요?')) return;
+    const next = photos.filter(p=>p.id!==id);
+    setPhotos(next); store.set('tl_gallery_photos',next);
+  };
+
+  return (
+    <div>
+      <div style={CARD}>
+        <SecHead icon="📷" title="사진 갤러리" action={
+          canEdit && (
+            <label style={{ ...btn('navyGhost'), height:30, cursor:'pointer', display:'inline-flex', alignItems:'center' }}>
+              + 사진 추가
+              <input ref={fileRef} type="file" accept="image/*" multiple
+                onChange={e=>addPhotos(e.target.files)} style={{ display:'none' }} />
+            </label>
+          )
+        } />
+        {photos.length===0 ? (
+          <div style={{ textAlign:'center', padding:'60px 20px', color:C.textHint, fontSize:13 }}>
+            등록된 사진이 없습니다.{canEdit && ' 우측 상단 [+ 사진 추가]로 업로드하세요.'}
+          </div>
+        ) : (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:10 }}>
+            {photos.map(p=>(
+              <div key={p.id} style={{ position:'relative', aspectRatio:'4/3', borderRadius:10, overflow:'hidden', background:'#f1f5f9', cursor:'pointer', border:`1px solid ${C.border}` }}>
+                <img src={p.src} alt="" onClick={()=>setViewer(p)}
+                  style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                {isMaster && (
+                  <button onClick={(e)=>{ e.stopPropagation(); removePhoto(p.id); }}
+                    style={{ position:'absolute', top:6, right:6, width:24, height:24, borderRadius:'50%', background:'rgba(0,0,0,0.6)', border:'none', color:'#fff', cursor:'pointer', fontSize:14, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {viewer && (
+        <div onClick={()=>setViewer(null)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'pointer' }}>
+          <img src={viewer.src} alt="" style={{ maxWidth:'95%', maxHeight:'95%', objectFit:'contain', borderRadius:8 }} />
+          <button onClick={()=>setViewer(null)} style={{ position:'absolute', top:20, right:20, width:36, height:36, borderRadius:'50%', background:'rgba(255,255,255,0.15)', border:'none', color:'#fff', cursor:'pointer', fontSize:20 }}>×</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Board Page (게시판 / 공지사항) ──────────────────────────
+function BoardPage({ role }) {
+  const canEdit = role==='master'||role==='admin';
+  const [notices,setNotices] = useState(()=>store.get('tl_home_notices')||[]);
+  const [noticeForm,setNoticeForm] = useState({title:'',body:''});
+  const [showNoticeForm,setShowNoticeForm] = useState(false);
+  const [editingId,setEditingId] = useState(null);
+
+  const addNotice = ()=>{
+    const t = noticeForm.title.trim(), b = noticeForm.body.trim();
+    if(!t&&!b){ alert('제목 또는 내용을 입력하세요.'); return; }
+    let next;
+    if(editingId){
+      next = notices.map(n=>n.id===editingId?{...n, title:t, body:b, updatedAt:new Date().toISOString()}:n);
+    } else {
+      next = [{ id:Date.now(), title:t, body:b, createdAt:new Date().toISOString() }, ...notices];
+    }
+    setNotices(next); store.set('tl_home_notices',next);
+    setNoticeForm({title:'',body:''}); setShowNoticeForm(false); setEditingId(null);
+  };
+  const startEdit = (n)=>{ setEditingId(n.id); setNoticeForm({title:n.title||'',body:n.body||''}); setShowNoticeForm(true); };
+  const removeNotice = (id)=>{
+    if(!confirm('이 공지를 삭제할까요?')) return;
+    const next = notices.filter(n=>n.id!==id);
+    setNotices(next); store.set('tl_home_notices',next);
+  };
+
+  const fmtDate = (iso)=>{ const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; };
+
+  return (
+    <div>
+      <div style={CARD}>
+        <SecHead icon="📢" title="게시판 · 공지사항" action={
+          canEdit && !showNoticeForm && (
+            <button onClick={()=>{ setShowNoticeForm(true); setEditingId(null); setNoticeForm({title:'',body:''}); }} style={{ ...btn('navyGhost'), height:30 }}>
+              + 새 글 작성
+            </button>
+          )
+        } />
+        {showNoticeForm && canEdit && (
+          <div style={{ background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:10, padding:14, marginBottom:14 }}>
+            <input value={noticeForm.title} onChange={e=>setNoticeForm(f=>({...f,title:e.target.value}))}
+              placeholder="제목" style={{ ...baseInput, marginBottom:8 }} />
+            <textarea value={noticeForm.body} onChange={e=>setNoticeForm(f=>({...f,body:e.target.value}))}
+              placeholder="내용" rows={5} style={{ ...baseInput, fontFamily:'inherit', resize:'vertical' }} />
+            <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button onClick={()=>{ setShowNoticeForm(false); setNoticeForm({title:'',body:''}); setEditingId(null); }} style={btn('secondary')}>취소</button>
+              <button onClick={addNotice} style={btn('primary')}>{editingId?'수정 완료':'등록'}</button>
+            </div>
+          </div>
+        )}
+        {notices.length===0 ? (
+          <div style={{ textAlign:'center', padding:'40px 20px', color:C.textHint, fontSize:13 }}>등록된 공지사항이 없습니다.</div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {notices.map(n=>(
+              <div key={n.id} style={{ border:`1px solid ${C.border}`, borderRadius:10, padding:'12px 14px', background:C.white }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:6 }}>
+                  <div style={{ fontSize:13.5, fontWeight:700, color:C.navyDark }}>{n.title||'(제목 없음)'}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                    <span style={{ fontSize:11, color:C.textHint }}>{fmtDate(n.updatedAt||n.createdAt)}{n.updatedAt?' (수정)':''}</span>
+                    {canEdit && (
+                      <>
+                        <button onClick={()=>startEdit(n)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textSub, fontSize:11, padding:'2px 4px' }}>수정</button>
+                        <button onClick={()=>removeNotice(n.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:16 }}>×</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {n.body && <div style={{ fontSize:12.5, color:C.textMid, whiteSpace:'pre-wrap', lineHeight:1.65 }}>{n.body}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -3224,7 +3532,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
                       <td style={TD('center')}>
                         <select value={u.role||'pending'} onChange={e=>changeUserRole(u.uid,e.target.value)}
                           style={{ fontSize:11, border:`1px solid ${C.border}`, borderRadius:6, padding:'2px 6px', background:C.white, cursor:'pointer' }}>
-                          {['master','admin','staff','pending'].map(r=><option key={r} value={r}>{r==='master'?'🔑마스터':r==='admin'?'👑대표':r==='staff'?'👤직원':'⏳대기'}</option>)}
+                          {['master','admin','staff','guest','pending'].map(r=><option key={r} value={r}>{r==='master'?'🔑마스터':r==='admin'?'👑대표':r==='staff'?'👤직원':r==='guest'?'👁게스트':'⏳대기'}</option>)}
                         </select>
                       </td>
                       <td style={TD('center')}>
@@ -5109,7 +5417,7 @@ function ManualPage() {
       desc:'사이트에 처음 접속할 때 비밀번호를 입력합니다',
       steps:[
         { title:'사이트 접속', detail:'인터넷 브라우저(크롬 권장)를 열고 주소창에 사이트 주소를 입력합니다. 즐겨찾기에 저장해 두시면 편합니다.' },
-        { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 박형준 (대표이사): taelimmotor\n▸ 박호준 (이사): taelimelectronics\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
+        { title:'비밀번호 입력', detail:'화면 가운데 비밀번호 칸에 숫자/영문을 입력합니다.\n▸ 박형준 (아버지): taelimmotor\n▸ 박호준 (작은아버지): taelimelectronics\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
         { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
         { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
         { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 박장혁 이사에게 연락 주세요.' },
@@ -5214,14 +5522,19 @@ function ManualPage() {
     },
     {
       icon:'💰', title:'자금 현황', color:'#0369a1',
-      desc:'회사 계좌별 잔액과 자금 흐름을 관리합니다',
+      desc:'회사 계좌별 잔액과 자금 흐름을 월별로 관리합니다',
       steps:[
         { title:'자금현황 탭 클릭', detail:'상단 메뉴에서 [자금현황]을 클릭합니다.' },
-        { title:'계좌별 잔액 확인', detail:'MMF, 보통예금 등 각 계좌의 잔액이 표시됩니다.' },
-        { title:'잔액 수정', detail:'각 계좌 옆 금액을 클릭하여 현재 실제 잔액으로 수정합니다.\n통장을 확인하고 맞춰서 입력해 주세요.' },
-        { title:'합계 확인', detail:'하단에 전체 자산 합계가 자동으로 표시됩니다.' },
+        { title:'월 이동', detail:'화면 중앙의 [← 2026년 5월 →] 버튼으로 보고 싶은 달로 이동합니다.\n월별로 잔고와 거래내역이 따로 저장되므로 4월 내역은 4월에서만, 5월 내역은 5월에서만 보입니다.' },
+        { title:'자동 이월 (전월 잔고 → 이번달 전월잔고)', detail:'이전 달의 [현재 잔고]가 자동으로 이번 달의 [전월 잔고]로 넘어옵니다. 별도 입력 불필요.\n(예금·잔고 현황 카드 우측에 🔁 자동 이월 표시)' },
+        { title:'통장 내역 가져오기 (XLS)', detail:'은행에서 받은 거래내역 엑셀 파일을 [📂 보통018/보통032/MMF 가져오기] 버튼으로 업로드하면\n해당 월 거래만 자동으로 추출되고, 중복된 행은 자동 제외됩니다. 잔액도 함께 업데이트됩니다.' },
+        { title:'입출금 내역 수기 입력', detail:'[+ 행 추가] 버튼으로 직접 입력할 수도 있습니다.\n날짜·계좌·적요·입금·출금을 입력하면 자동 정렬 및 번호 매김됩니다.' },
+        { title:'잔고 직접 수정', detail:'[예금·잔고 현황] 표에서 전월/현재 잔고를 직접 입력할 수 있습니다. 통장과 비교하여 맞춰 주세요.' },
+        { title:'미스매치 확인', detail:'거래내역 합계와 수기 입력 잔고가 다르면 노란색 경고가 표시됩니다.\n[🔄 거래내역 기준으로 잔고 맞추기] 버튼으로 자동 보정할 수 있습니다.' },
+        { title:'🔒 확정 잠금 (사장님만)', detail:'청구서 발송 완료된 달은 [🔓 확정 잠금] 버튼으로 잠그시면 됩니다.\n잠긴 달은 잔고·입출금 내역 수정, 통장 가져오기, 행 추가/삭제가 모두 막힙니다.\n실수로 숫자가 바뀌는 것을 막아줍니다. 잠금 해제도 사장님(마스터)만 가능합니다.' },
+        { title:'인쇄 / PDF 저장', detail:'화면 하단의 [🖨️ 자금현황 인쇄] 버튼으로 해당 월 보고서를 출력하거나 PDF로 저장할 수 있습니다.' },
       ],
-      tip:'💡 월 마감 때 통장 잔액을 확인하여 업데이트해 주세요.',
+      tip:'💡 매월 통장 가져오기 → 미스매치 확인 → 잔고 맞춤 → 확정 잠금 순서로 마감하시면 됩니다. 잠금 후에도 언제든 해제 가능하니 안심하고 잠그세요.',
     },
     {
       icon:'📢', title:'업무 보고', color:'#0891b2',
@@ -5397,7 +5710,7 @@ export default function App() {
   const [savedPw,setSavedPw]=useState(()=>store.get('tl_pw')||DEFAULT_PASSWORD);
   const [adminPw,setAdminPw]=useState(()=>store.get('tl_admin_pw')||'taelimmotor');
   const [masterPw,setMasterPw]=useState(()=>store.get('tl_master_pw')||'master2024');
-  const [page,setPage]=useState('input');
+  const [page,setPage]=useState('home');
   const [approvals,setApprovals]=useState(()=>store.get('tl_approvals')||[]);
   const [reading,setReading]=useState(()=>store.get('tl_reading')||SAMPLE_READING);
   const [history,setHistory]=useState(()=>store.get('tl_history')||INITIAL_HISTORY);
@@ -5485,7 +5798,7 @@ export default function App() {
         const isFirst=Object.keys(users).length===0;
         const empNo=`EMP-${String(Object.keys(users).length+1).padStart(3,'0')}`;
         profile={ name:cred.user.displayName||cred.user.email, email:cred.user.email,
-          dept:'', role:isFirst?'master':'staff', approved:true, empNo,
+          dept:'', role:isFirst?'master':'guest', approved:true, empNo,
           createdAt:new Date().toISOString() };
         users[cred.user.uid]=profile;
         store.set('tl_fb_users',users);
@@ -5519,6 +5832,9 @@ export default function App() {
     <div style={{ fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", minHeight:'100vh', background:C.pageBg }}>
       <Header page={page} setPage={setPage} onLogout={async()=>{ await signOut(auth); setLoggedIn(false); setRole('staff'); setUserProfile(null); store.set('tl_user_name',''); }} role={role} pendingCount={pendingCount} userName={store.get('tl_user_name')||''} />
       <main style={{ padding:'20px 24px', maxWidth:980, margin:'0 auto' }}>
+        {page==='home'      && <HomePage     role={role} setPage={setPage} />}
+        {page==='gallery'   && <GalleryPage  role={role} />}
+        {page==='board'     && <BoardPage    role={role} />}
         {page==='input'     && <InputPage    reading={reading} onChange={onChange} onSave={onSave} saveMsg={saveMsg} />}
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
         {page==='quarterly' && <QuarterlyPage history={history} tenants={tenants} />}
