@@ -1,4 +1,4 @@
-import { useState, Fragment, useEffect, useRef } from "react";
+import { useState, Fragment, useEffect, useRef, useMemo } from "react";
 /* global XLSX */
 import { auth, db } from './firebase';
 import { supabase } from './supabase';
@@ -2234,7 +2234,54 @@ function TenantPage({ tenants, setTenants, role }) {
 function FinancePage() {
   const now=new Date();
   const [month,setMonth]=useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
-  const [accounts,setAccounts]=useState(()=>store.get('tl_finance_accounts')||INITIAL_ACCOUNTS);
+  // 잔고는 월별로 저장. 기존 글로벌 데이터는 처음 1회 거래내역이 있는 가장 최근 달로 마이그레이션.
+  const [accountsByYm,setAccountsByYm]=useState(()=>{
+    const stored=store.get('tl_finance_accounts_by_ym');
+    if(stored&&typeof stored==='object') return stored;
+    const legacy=store.get('tl_finance_accounts');
+    if(legacy){
+      const txns=store.get('tl_finance_txns')||{};
+      const txnYms=Object.keys(txns).filter(m=>(txns[m]?.rows||[]).length>0).sort();
+      const targetYm=txnYms.length
+        ?txnYms[txnYms.length-1]
+        :`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      const migrated={ [targetYm]: legacy };
+      store.set('tl_finance_accounts_by_ym',migrated);
+      return migrated;
+    }
+    return {};
+  });
+
+  // 현재 month의 accounts. 저장된 값이 없으면 직전 달의 curr를 prev로 자동 이월.
+  const accounts=useMemo(()=>{
+    const out={};
+    const cur=accountsByYm[month];
+    if(cur){
+      ACCT_ORDER.forEach(k=>{
+        out[k]={
+          label: cur[k]?.label || INITIAL_ACCOUNTS[k].label,
+          prev: cur[k]?.prev || 0,
+          curr: cur[k]?.curr || 0,
+        };
+      });
+      return out;
+    }
+    const prevYms=Object.keys(accountsByYm).filter(m=>m<month).sort();
+    const prevAccts=prevYms.length?accountsByYm[prevYms[prevYms.length-1]]:null;
+    ACCT_ORDER.forEach(k=>{
+      out[k]={
+        label: prevAccts?.[k]?.label || INITIAL_ACCOUNTS[k].label,
+        prev: prevAccts?.[k]?.curr || 0,
+        curr: 0,
+      };
+    });
+    return out;
+  },[accountsByYm,month]);
+
+  const persistAccounts=(nextForMonth)=>{
+    const nb={...accountsByYm,[month]:nextForMonth};
+    setAccountsByYm(nb); store.set('tl_finance_accounts_by_ym',nb); setAutoSaveAt(new Date());
+  };
 
   // 마이그레이션: 모든 행에 acct 필드 보장 (옛 데이터 → 'acct018')
   const [txnData,setTxnData]=useState(()=>{
@@ -2268,7 +2315,7 @@ function FinancePage() {
 
   const upAcct=(key,field,val)=>{
     const next={...accounts,[key]:{...accounts[key],[field]:Number(val)||0}};
-    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
+    persistAccounts(next);
   };
 
   const acctKeys=ACCT_ORDER.filter(k=>accounts[k]);
@@ -2405,14 +2452,7 @@ function FinancePage() {
     if(!confirm('거래내역 합계 기준으로 [현재 잔고]를 다시 계산해서 덮어쓸까요?')) return;
     const next={...accounts};
     acctKeys.forEach(k=>{ next[k]={...next[k], curr:expectedCurr(k)}; });
-    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
-  };
-
-  const rolloverPrev=()=>{
-    if(!confirm('현재 잔고를 [전월 잔고]로 이월 적용하시겠습니까?\n다음달로 넘어가기 전에 사용하세요.')) return;
-    const next={...accounts};
-    acctKeys.forEach(k=>{ next[k]={...next[k], prev:accounts[k].curr||0}; });
-    setAccounts(next); store.set('tl_finance_accounts',next); setAutoSaveAt(new Date());
+    persistAccounts(next);
   };
 
   const IMPORT_BTNS=[
@@ -2525,7 +2565,7 @@ function FinancePage() {
         <SecHead icon="🏦" title="예금·잔고 현황" action={
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {autoSaveAt && <span style={{ fontSize:11, color:C.green }}>✓ 자동저장 {autoSaveAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>}
-            <button onClick={rolloverPrev} style={{ ...btn('ghost'), height:28, fontSize:11.5 }} title="현재 잔고를 [전월 잔고] 칸으로 이월 (월 마감 시)">📤 잔고 이월</button>
+            <span style={{ fontSize:11, color:C.textHint }} title="이전 달의 현재잔고가 자동으로 이번 달의 전월잔고가 됩니다">🔁 자동 이월</span>
           </div>
         } />
         <div style={{ overflowX:'auto' }}>
