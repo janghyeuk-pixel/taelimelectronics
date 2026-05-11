@@ -2231,7 +2231,8 @@ function TenantPage({ tenants, setTenants, role }) {
 }
 
 // ─── Finance Page ─────────────────────────────────────────────
-function FinancePage() {
+function FinancePage({ role }) {
+  const canLock = role==='master';
   const now=new Date();
   const [month,setMonth]=useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
   // 잔고는 월별로 저장. 기존 글로벌 데이터는 처음 1회 거래내역이 있는 가장 최근 달로 마이그레이션.
@@ -2283,6 +2284,10 @@ function FinancePage() {
     setAccountsByYm(nb); store.set('tl_finance_accounts_by_ym',nb); setAutoSaveAt(new Date());
   };
 
+  // 월별 확정 잠금. 잠긴 달은 모든 수정이 차단됨.
+  const [lockedByYm,setLockedByYm]=useState(()=>store.get('tl_finance_locks')||{});
+  const isLocked=!!lockedByYm[month];
+
   // 마이그레이션: 모든 행에 acct 필드 보장 (옛 데이터 → 'acct018')
   const [txnData,setTxnData]=useState(()=>{
     const raw=store.get('tl_finance_txns')||{};
@@ -2308,14 +2313,29 @@ function FinancePage() {
     .map((r,i)=>({...r, no:String(i+1).padStart(3,'0')}));
 
   const setYmData=(next)=>{
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
     const cleaned={...next, rows:sortAndRenumber(next.rows||[])};
     const nd={...txnData,[month]:cleaned};
     setTxnData(nd); store.set('tl_finance_txns',nd); setAutoSaveAt(new Date());
   };
 
   const upAcct=(key,field,val)=>{
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
     const next={...accounts,[key]:{...accounts[key],[field]:Number(val)||0}};
     persistAccounts(next);
+  };
+
+  const toggleLock=()=>{
+    if(!canLock){ alert('확정 잠금/해제는 마스터만 가능합니다.'); return; }
+    if(isLocked){
+      if(!confirm(`${monthLabel} 확정을 해제할까요?\n해제 후 잔고 및 입출금 내역을 수정할 수 있습니다.`)) return;
+      const nb={...lockedByYm}; delete nb[month];
+      setLockedByYm(nb); store.set('tl_finance_locks',nb);
+    } else {
+      if(!confirm(`${monthLabel} 자금현황을 확정으로 잠그시겠습니까?\n잠금 후에는 잔고와 입출금 내역을 수정할 수 없습니다.\n(언제든 잠금 해제 가능)`)) return;
+      const nb={...lockedByYm,[month]:true};
+      setLockedByYm(nb); store.set('tl_finance_locks',nb);
+    }
   };
 
   const acctKeys=ACCT_ORDER.filter(k=>accounts[k]);
@@ -2364,6 +2384,7 @@ function FinancePage() {
 
   const handleXlsFile=(acctKey,file)=>{
     if(!file) return;
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); if(fileInputRefs.current[acctKey]) fileInputRefs.current[acctKey].value=''; return; }
     const reader=new FileReader();
     reader.onload=(e)=>{
       try {
@@ -2449,6 +2470,7 @@ function FinancePage() {
   };
 
   const syncAcctsFromLedger=()=>{
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
     if(!confirm('거래내역 합계 기준으로 [현재 잔고]를 다시 계산해서 덮어쓸까요?')) return;
     const next={...accounts};
     acctKeys.forEach(k=>{ next[k]={...next[k], curr:expectedCurr(k)}; });
@@ -2463,6 +2485,20 @@ function FinancePage() {
 
   return (
     <div>
+      {/* 확정 잠금 상태 배너 */}
+      {isLocked && (
+        <div style={{ background:C.amberBg, border:`1.5px solid ${C.amberBorder}`, borderRadius:12, padding:'12px 16px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:20 }}>🔒</span>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.amber, marginBottom:2 }}>{monthLabel} 확정 잠금</div>
+              <div style={{ fontSize:11.5, color:'#78350f' }}>청구서가 발송된 확정 자료입니다. 잔고와 입출금 내역을 수정할 수 없습니다.{!canLock && ' (해제는 마스터만 가능)'}</div>
+            </div>
+          </div>
+          {canLock && <button onClick={toggleLock} style={{ ...btn('amber'), height:32 }}>🔓 잠금 해제</button>}
+        </div>
+      )}
+
       {/* 월간 요약 카드 */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
         {[
@@ -2501,11 +2537,11 @@ function FinancePage() {
         <SecHead icon="📂" title="통장 내역 가져오기 (XLS)" action={<span style={{fontSize:11,color:C.textHint}}>{monthLabel} 거래만 자동 추출 · 중복 제외 · 날짜순 정렬</span>} />
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
           {IMPORT_BTNS.map(({key,label,color})=>(
-            <label key={key} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:color+'18',border:`1.5px solid ${color}44`,borderRadius:10,cursor:'pointer',fontSize:13,fontWeight:600,color,transition:'background 0.15s'}}
-              onMouseEnter={e=>e.currentTarget.style.background=color+'30'}
-              onMouseLeave={e=>e.currentTarget.style.background=color+'18'}>
+            <label key={key} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',background:color+'18',border:`1.5px solid ${color}44`,borderRadius:10,cursor:isLocked?'not-allowed':'pointer',fontSize:13,fontWeight:600,color,transition:'background 0.15s',opacity:isLocked?0.4:1,pointerEvents:isLocked?'none':'auto'}}
+              onMouseEnter={e=>{ if(!isLocked) e.currentTarget.style.background=color+'30'; }}
+              onMouseLeave={e=>{ if(!isLocked) e.currentTarget.style.background=color+'18'; }}>
               📂 {label}
-              <input type="file" accept=".xls,.xlsx" style={{display:'none'}}
+              <input type="file" accept=".xls,.xlsx" style={{display:'none'}} disabled={isLocked}
                 ref={el=>fileInputRefs.current[key]=el}
                 onChange={e=>handleXlsFile(key,e.target.files[0])} />
             </label>
@@ -2566,6 +2602,16 @@ function FinancePage() {
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {autoSaveAt && <span style={{ fontSize:11, color:C.green }}>✓ 자동저장 {autoSaveAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>}
             <span style={{ fontSize:11, color:C.textHint }} title="이전 달의 현재잔고가 자동으로 이번 달의 전월잔고가 됩니다">🔁 자동 이월</span>
+            {canLock && (
+              <button onClick={toggleLock} title={isLocked?'잠금 해제':'이 달을 확정 상태로 잠그기'}
+                style={{ padding:'4px 10px', borderRadius:14, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  background:isLocked?C.amberBg:C.white, color:isLocked?C.amber:C.textSub, border:`1px solid ${isLocked?C.amberBorder:C.border}` }}>
+                {isLocked?'🔒 확정됨':'🔓 확정 잠금'}
+              </button>
+            )}
+            {!canLock && isLocked && (
+              <span style={{ padding:'4px 10px', borderRadius:14, fontSize:11, fontWeight:700, background:C.amberBg, color:C.amber, border:`1px solid ${C.amberBorder}` }}>🔒 확정됨</span>
+            )}
           </div>
         } />
         <div style={{ overflowX:'auto' }}>
@@ -2590,15 +2636,15 @@ function FinancePage() {
                       </span>
                     </td>
                     <td style={TD('right')}>
-                      <input type="number" value={a.prev||''} onChange={e=>upAcct(key,'prev',e.target.value)}
-                        style={{ ...inlineInputStyle(C.textMid), width:'100%' }}
-                        onFocus={e=>(e.target.style.borderColor=C.navyBg2)}
+                      <input type="number" value={a.prev||''} onChange={e=>upAcct(key,'prev',e.target.value)} readOnly={isLocked}
+                        style={{ ...inlineInputStyle(C.textMid), width:'100%', cursor:isLocked?'not-allowed':'text', background:isLocked?'#f8fafc':'transparent' }}
+                        onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))}
                         onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={TD('right')}>
-                      <input type="number" value={a.curr||''} onChange={e=>upAcct(key,'curr',e.target.value)}
-                        style={{ ...inlineInputStyle(C.navyDark), width:'100%', fontWeight:700 }}
-                        onFocus={e=>(e.target.style.borderColor=C.navyBg2)}
+                      <input type="number" value={a.curr||''} onChange={e=>upAcct(key,'curr',e.target.value)} readOnly={isLocked}
+                        style={{ ...inlineInputStyle(C.navyDark), width:'100%', fontWeight:700, cursor:isLocked?'not-allowed':'text', background:isLocked?'#f8fafc':'transparent' }}
+                        onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))}
                         onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={TD('right',{fontWeight:600,color:net>=0?C.blue:C.red})}>{net>=0?'+':''}{fmt(net)}</td>
@@ -2672,26 +2718,26 @@ function FinancePage() {
                   <tr key={row.id} style={{ background:idx%2===0?C.white:C.tAlt }}>
                     <td style={TD('left',{color:C.textHint,fontSize:11.5,fontVariantNumeric:'tabular-nums'})}>{row.no||String(idx+1).padStart(3,'0')}</td>
                     <td style={TD('left')}>
-                      <input type="date" value={row.date||''} onChange={e=>upRow(row.id,'date',e.target.value)} style={{ ...inlineInputStyle(), fontSize:12 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                      <input type="date" value={row.date||''} onChange={e=>upRow(row.id,'date',e.target.value)} readOnly={isLocked} style={{ ...inlineInputStyle(), fontSize:12, cursor:isLocked?'not-allowed':'text' }} onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))} onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={TD('left')}>
-                      <select value={row.acct||''} onChange={e=>upRow(row.id,'acct',e.target.value)}
-                        style={{ ...inlineInputStyle(), background:c.bg, color:c.fg, border:`1px solid ${c.border}`, fontSize:11, fontWeight:700, padding:'3px 6px', cursor:'pointer' }}>
+                      <select value={row.acct||''} onChange={e=>upRow(row.id,'acct',e.target.value)} disabled={isLocked}
+                        style={{ ...inlineInputStyle(), background:c.bg, color:c.fg, border:`1px solid ${c.border}`, fontSize:11, fontWeight:700, padding:'3px 6px', cursor:isLocked?'not-allowed':'pointer' }}>
                         {acctKeys.map(k=><option key={k} value={k}>{ACCT_COLOR[k].short}</option>)}
                       </select>
                     </td>
                     <td style={TD('left')}>
-                      <input value={row.desc||''} onChange={e=>upRow(row.id,'desc',e.target.value)} placeholder="적요" style={{ ...inlineInputStyle(), minWidth:120 }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                      <input value={row.desc||''} onChange={e=>upRow(row.id,'desc',e.target.value)} readOnly={isLocked} placeholder="적요" style={{ ...inlineInputStyle(), minWidth:120, cursor:isLocked?'not-allowed':'text' }} onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))} onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={TD('right')}>
-                      <input type="number" value={row.income||''} onChange={e=>upRow(row.id,'income',e.target.value)} style={{ ...inlineInputStyle(row.income?C.blue:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                      <input type="number" value={row.income||''} onChange={e=>upRow(row.id,'income',e.target.value)} readOnly={isLocked} style={{ ...inlineInputStyle(row.income?C.blue:C.textHint), width:'100%', cursor:isLocked?'not-allowed':'text' }} onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))} onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     <td style={TD('right')}>
-                      <input type="number" value={row.expense||''} onChange={e=>upRow(row.id,'expense',e.target.value)} style={{ ...inlineInputStyle(row.expense?C.red:C.textHint), width:'100%' }} onFocus={e=>(e.target.style.borderColor=C.navyBg2)} onBlur={e=>(e.target.style.borderColor='transparent')} />
+                      <input type="number" value={row.expense||''} onChange={e=>upRow(row.id,'expense',e.target.value)} readOnly={isLocked} style={{ ...inlineInputStyle(row.expense?C.red:C.textHint), width:'100%', cursor:isLocked?'not-allowed':'text' }} onFocus={e=>(!isLocked&&(e.target.style.borderColor=C.navyBg2))} onBlur={e=>(e.target.style.borderColor='transparent')} />
                     </td>
                     {acctFilter!=='all' && <td style={TD('right',{fontWeight:700,color:row.balance>=0?C.text:C.red})}>{fmt(row.balance)}</td>}
                     <td style={TD('center')}>
-                      <button onClick={()=>delRow(row.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>
+                      {!isLocked && <button onClick={()=>delRow(row.id)} style={{ background:'transparent', border:'none', cursor:'pointer', color:C.textHint, fontSize:18, lineHeight:1, padding:'0 4px' }}>×</button>}
                     </td>
                   </tr>
                 );
@@ -2702,19 +2748,20 @@ function FinancePage() {
 
         <div style={{ marginTop:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8 }}>
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-            <button onClick={addRow} style={btn('navyGhost')}>+ 행 추가</button>
+            <button onClick={addRow} disabled={isLocked} style={{ ...btn('navyGhost'), opacity:isLocked?0.4:1, cursor:isLocked?'not-allowed':'pointer' }}>+ 행 추가</button>
             {acctFilter==='all' && (
               <select value={defaultAcct} onChange={e=>setDefaultAcct(e.target.value)} style={{ ...baseInput, width:'auto', padding:'6px 10px', fontSize:12, cursor:'pointer' }}>
                 {acctKeys.map(k=><option key={k} value={k}>새 행 → {accounts[k].label}</option>)}
               </select>
             )}
             <button onClick={()=>{
+              if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
               const target=acctFilter==='all'?'전체':accounts[acctFilter].label;
               if(window.confirm(`${monthLabel} 입출금 내역${acctFilter!=='all'?` (${target}만)`:''} 전부 삭제할까요?`)){
                 const rest=acctFilter==='all'?[]:(ymData.rows||[]).filter(r=>r.acct!==acctFilter);
                 setYmData({...ymData,rows:rest});
               }
-            }} style={{...btn('secondary'),color:C.red,borderColor:C.red+'44'}}>🗑 {acctFilter==='all'?'전부 삭제':'필터 계좌 삭제'}</button>
+            }} disabled={isLocked} style={{...btn('secondary'),color:C.red,borderColor:C.red+'44', opacity:isLocked?0.4:1, cursor:isLocked?'not-allowed':'pointer'}}>🗑 {acctFilter==='all'?'전부 삭제':'필터 계좌 삭제'}</button>
           </div>
           {displayRows.length>0 && (
             <div style={{ fontSize:13, color:C.textSub, display:'flex', gap:16, flexWrap:'wrap' }}>
@@ -5477,7 +5524,7 @@ export default function App() {
         {page==='quarterly' && <QuarterlyPage history={history} tenants={tenants} />}
         {page==='history'   && <HistoryPage  history={history} onLoad={(h)=>{ onChange(h); setPage('input'); }} onUpdate={(updated)=>{ setHistory(updated); store.set('tl_history',updated); }} />}
         {page==='tenant'    && <TenantPage   tenants={tenants} setTenants={handleSetTenants} role={role} />}
-        {page==='finance'   && <FinancePage  />}
+        {page==='finance'   && <FinancePage  role={role} />}
         {page==='notice'    && <NoticePage   />}
         {page==='approval'  && <ApprovalPage role={role} />}
         {page==='voucher'   && <VoucherPage  role={role} />}
