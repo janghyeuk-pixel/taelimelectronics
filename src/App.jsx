@@ -853,8 +853,8 @@ function HomePage({ role, setPage }) {
   const [ratesDate,setRatesDate] = useState('');
   const [ratesErr,setRatesErr] = useState(false);
   useEffect(()=>{
-    // frankfurter.app — 무료, 키 불필요, ECB 데이터. KRW 기준으로 받아서 역수.
-    fetch('https://api.frankfurter.app/latest?base=KRW&symbols=USD,EUR,JPY,CNY')
+    // frankfurter.dev — 무료, 키 불필요, ECB 데이터. KRW 기준으로 받아서 역수.
+    fetch('https://api.frankfurter.dev/v1/latest?base=KRW&symbols=USD,EUR,JPY,CNY')
       .then(r=>r.json())
       .then(d=>{
         const inv={};
