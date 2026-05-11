@@ -2328,6 +2328,9 @@ function FinancePage() {
         const dataRows=allRows.filter(row=>row[0]&&dateRe.test(String(row[0])));
         if(dataRows.length===0){ alert('거래 내역을 찾을 수 없습니다.\n파일 형식을 확인해 주세요.'); return; }
 
+        // 파일이 최신순/오래된순 어느 쪽이든 timestamp 가장 큰 행이 최신 잔액
+        const latestRow=dataRows.reduce((a,b)=>String(a[0])>String(b[0])?a:b);
+
         let parsed=[]; let finalBalance=0;
         if(acctKey==='acct018'||acctKey==='acct032'){
           parsed=dataRows.map(row=>({
@@ -2338,13 +2341,29 @@ function FinancePage() {
             balance:parseNum(row[3]),
             acct:acctKey,
           })).filter(r=>r.income||r.expense);
-          if(parsed.length>0) finalBalance=parsed[parsed.length-1].balance;
+          finalBalance=parseNum(latestRow[3]);
         } else if(acctKey==='mmf'){
-          const lastRow=dataRows[dataRows.length-1];
-          finalBalance=parseNum(lastRow[12])||parseNum(lastRow[6])||parseNum(lastRow[7])||0;
+          // MMF: row[1]=출금, row[2]=입금, row[3]=적요, row[4]=거래종류, row[12]=잔액
+          // 매입체결처럼 자금이동 없는 행은 row[1]/row[2]=0이라 자동 필터됨
+          parsed=dataRows.map(row=>{
+            const memo=String(row[3]||'').trim();
+            const kind=String(row[4]||'').trim();
+            return {
+              date:String(row[0]).substring(0,10),
+              desc:[memo,kind].filter(Boolean).join(' / '),
+              income:parseNum(row[2]),
+              expense:parseNum(row[1]),
+              balance:parseNum(row[12]),
+              acct:acctKey,
+            };
+          }).filter(r=>r.income||r.expense);
+          finalBalance=parseNum(latestRow[12])||parseNum(latestRow[6])||parseNum(latestRow[7])||0;
           if(!finalBalance){ alert('MMF 잔액을 찾을 수 없습니다.\n파일을 확인해 주세요.'); return; }
-          setImportPreview({acctKey,rows:[],finalBalance,mmfOnly:true});
-          return;
+          if(parsed.length===0){
+            // 거래 없음 → 잔액만 업데이트 (기존 동작 유지)
+            setImportPreview({acctKey,rows:[],finalBalance,mmfOnly:true});
+            return;
+          }
         }
 
         if(parsed.length===0){ alert('파싱된 거래 내역이 없습니다.'); return; }
