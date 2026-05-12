@@ -3421,6 +3421,55 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
     };
     reader.readAsText(file);
   };
+  // ── 클라우드(Firestore) 백업/복원 ──
+  const handleCloudBackup=async()=>{
+    if(!window.confirm('현재 이 기기의 데이터를 클라우드에 업로드합니다.\n(다른 기기의 클라우드 데이터를 덮어씁니다)\n계속하시겠습니까?')) return;
+    setBkMsg('☁️ 클라우드 업로드 중...');
+    try{
+      const keys=[];
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k&&k.startsWith('tl_')) keys.push(k);
+      }
+      let saved=0, skipped=0;
+      for(const k of keys){
+        let raw=localStorage.getItem(k);
+        // Firestore 문서 1MB 제한 — 이미지/대용량은 스킵
+        if(raw && raw.length > 900000){ skipped++; continue; }
+        let v; try{ v=JSON.parse(raw); }catch{ v=raw; }
+        try{
+          await setDoc(doc(db,'backups',k),{ value:v, updatedAt:new Date().toISOString() });
+          saved++;
+        }catch(e){ skipped++; console.warn('skip',k,e.message); }
+      }
+      setBkMsg(`✓ 클라우드 업로드 완료 — ${saved}개 저장${skipped?` (${skipped}개 스킵: 용량 초과)`:''}`);
+      setTimeout(()=>setBkMsg(''),5000);
+    }catch(e){
+      setBkMsg('⚠ 업로드 실패: '+e.message);
+      setTimeout(()=>setBkMsg(''),5000);
+    }
+  };
+  const handleCloudRestore=async()=>{
+    if(!window.confirm('클라우드에서 데이터를 받아와 이 기기의 현재 데이터를 덮어씁니다.\n계속하시겠습니까?')) return;
+    setBkMsg('☁️ 클라우드 다운로드 중...');
+    try{
+      const snap=await getDocs(collection(db,'backups'));
+      let restored=0;
+      snap.forEach(d=>{
+        const k=d.id;
+        const v=d.data()?.value;
+        if(k&&k.startsWith('tl_')&&v!==undefined){
+          try{ localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); restored++; }catch{}
+        }
+      });
+      if(restored===0){ setBkMsg('⚠ 클라우드에 백업 데이터가 없습니다'); setTimeout(()=>setBkMsg(''),5000); return; }
+      setBkMsg(`✓ ${restored}개 항목 복원 — 새로고침합니다…`);
+      setTimeout(()=>window.location.reload(),1500);
+    }catch(e){
+      setBkMsg('⚠ 다운로드 실패: '+e.message);
+      setTimeout(()=>setBkMsg(''),5000);
+    }
+  };
   const [emailSubject,setEmailSubject]=useState('');
   const [emailBody,setEmailBody]=useState('');
   const [emailMsg,setEmailMsg]=useState('');
@@ -3873,11 +3922,23 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
         <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
           <button onClick={handleExportBackup} style={btn('primary')}>📥 전체 백업 다운로드 (.json)</button>
           <button onClick={()=>{ backupFileRef.current.value=''; backupFileRef.current.click(); }} style={btn('navyGhost')}>📤 백업 파일에서 복원</button>
-          {bkMsg && <span style={{ fontSize:12.5, fontWeight:600, color:bkMsg.includes('✓')?C.green:C.red }}>{bkMsg}</span>}
         </div>
+        <div style={{ marginTop:14, paddingTop:14, borderTop:`1px dashed ${C.border}` }}>
+          <div style={{ fontSize:12.5, fontWeight:700, color:C.text, marginBottom:8 }}>☁️ 클라우드 동기화 (기기 간 데이터 공유)</div>
+          <div style={{ background:'#E8F4FD', border:`1px solid #93C5FD`, borderRadius:8, padding:'10px 12px', marginBottom:10, fontSize:12, color:'#1E40AF', lineHeight:1.6 }}>
+            ① <b>데이터가 있는 기기</b>에서 "클라우드에 업로드" 클릭<br/>
+            ② <b>다른 기기</b>에서 "클라우드에서 복원" 클릭하면 같은 데이터로 동기화됨
+          </div>
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+            <button onClick={handleCloudBackup} style={btn('primary')}>☁️⬆ 클라우드에 업로드</button>
+            <button onClick={handleCloudRestore} style={btn('navyGhost')}>☁️⬇ 클라우드에서 복원</button>
+          </div>
+        </div>
+        {bkMsg && <div style={{ marginTop:10, fontSize:12.5, fontWeight:600, color:bkMsg.includes('✓')?C.green:bkMsg.includes('☁')?C.text:C.red }}>{bkMsg}</div>}
         <div style={{ marginTop:10, fontSize:11.5, color:C.textHint, lineHeight:1.6 }}>
           포함 항목: 검침/히스토리, 자금현황, 임차인, 사용자, 비밀번호(평문), 출퇴근, 결재, 알림 토큰, 고지서 이미지 등 모든 <code>tl_*</code> 데이터.
           <br/>※ 전표는 Supabase에 별도 저장되어 백업 대상이 아닙니다.
+          <br/>※ 클라우드 업로드 시 1MB 이상 항목(대용량 이미지)은 자동 스킵됩니다.
         </div>
       </div>
 
