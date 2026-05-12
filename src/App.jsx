@@ -3421,53 +3421,48 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
     };
     reader.readAsText(file);
   };
-  // ── 클라우드(Firestore) 백업/복원 ──
+  // ── 클라우드(Supabase) 백업/복원 ──
   const handleCloudBackup=async()=>{
     if(!window.confirm('현재 이 기기의 데이터를 클라우드에 업로드합니다.\n(다른 기기의 클라우드 데이터를 덮어씁니다)\n계속하시겠습니까?')) return;
     setBkMsg('☁️ 클라우드 업로드 중...');
     try{
-      const keys=[];
+      const rows=[];
       for(let i=0;i<localStorage.length;i++){
         const k=localStorage.key(i);
-        if(k&&k.startsWith('tl_')) keys.push(k);
-      }
-      let saved=0, skipped=0;
-      for(const k of keys){
+        if(!k||!k.startsWith('tl_')) continue;
         let raw=localStorage.getItem(k);
-        // Firestore 문서 1MB 제한 — 이미지/대용량은 스킵
-        if(raw && raw.length > 900000){ skipped++; continue; }
         let v; try{ v=JSON.parse(raw); }catch{ v=raw; }
-        try{
-          await setDoc(doc(db,'backups',k),{ value:v, updatedAt:new Date().toISOString() });
-          saved++;
-        }catch(e){ skipped++; console.warn('skip',k,e.message); }
+        rows.push({ key:k, value:v, updated_at:new Date().toISOString() });
       }
-      setBkMsg(`✓ 클라우드 업로드 완료 — ${saved}개 저장${skipped?` (${skipped}개 스킵: 용량 초과)`:''}`);
+      const{error}=await supabase.from('kv_backups').upsert(rows,{ onConflict:'key' });
+      if(error) throw error;
+      setBkMsg(`✓ 클라우드 업로드 완료 — ${rows.length}개 저장`);
       setTimeout(()=>setBkMsg(''),5000);
     }catch(e){
-      setBkMsg('⚠ 업로드 실패: '+e.message);
-      setTimeout(()=>setBkMsg(''),5000);
+      setBkMsg('⚠ 업로드 실패: '+(e.message||e));
+      setTimeout(()=>setBkMsg(''),7000);
     }
   };
   const handleCloudRestore=async()=>{
     if(!window.confirm('클라우드에서 데이터를 받아와 이 기기의 현재 데이터를 덮어씁니다.\n계속하시겠습니까?')) return;
     setBkMsg('☁️ 클라우드 다운로드 중...');
     try{
-      const snap=await getDocs(collection(db,'backups'));
+      const{data,error}=await supabase.from('kv_backups').select('key,value');
+      if(error) throw error;
+      const arr=data||[];
+      if(arr.length===0){ setBkMsg('⚠ 클라우드에 백업 데이터가 없습니다'); setTimeout(()=>setBkMsg(''),5000); return; }
       let restored=0;
-      snap.forEach(d=>{
-        const k=d.id;
-        const v=d.data()?.value;
+      arr.forEach(r=>{
+        const k=r.key, v=r.value;
         if(k&&k.startsWith('tl_')&&v!==undefined){
           try{ localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); restored++; }catch{}
         }
       });
-      if(restored===0){ setBkMsg('⚠ 클라우드에 백업 데이터가 없습니다'); setTimeout(()=>setBkMsg(''),5000); return; }
       setBkMsg(`✓ ${restored}개 항목 복원 — 새로고침합니다…`);
       setTimeout(()=>window.location.reload(),1500);
     }catch(e){
-      setBkMsg('⚠ 다운로드 실패: '+e.message);
-      setTimeout(()=>setBkMsg(''),5000);
+      setBkMsg('⚠ 다운로드 실패: '+(e.message||e));
+      setTimeout(()=>setBkMsg(''),7000);
     }
   };
   const [emailSubject,setEmailSubject]=useState('');
