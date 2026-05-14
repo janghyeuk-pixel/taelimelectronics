@@ -15,7 +15,7 @@ const DEFAULT_PASSWORD = "taelim1staff";
 // 추가 사용자 — 이름과 권한 매핑
 const EXTRA_USERS = [
   { name:'박형준', role:'admin',  pw:'taelimmotor'        }, // 대표이사
-  { name:'박호준', role:'admin',  pw:'taelimelectronics'  }, // 이사
+  { name:'박호준', role:'admin',  pw:'taelimmotor-1'  }, // 이사
   { name:'직원1',   role:'staff',  pw:'taelim1staff'       }, // Staff1 (= DEFAULT_PASSWORD)
   { name:'직원2',   role:'staff',  pw:'taelim2staff'       }, // Staff2
   { name:'Guest1',  role:'guest',  pw:'taelimguest1'       }, // 게스트1 (보기만)
@@ -794,10 +794,10 @@ function LoginPage({ onLogin, onGoogleLogin }) {
 }
 
 // ─── Header ───────────────────────────────────────────────────
-const ALL_TABS=[['home','홈'],['gallery','갤러리'],['board','게시판'],['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
+const ALL_TABS=[['home','홈'],['gallery','갤러리'],['board','게시판'],['calendar','캘린더'],['input','검침 입력'],['invoice','청구서'],['quarterly','분기 현황'],['history','히스토리'],['tenant','임차인 현황'],['finance','자금현황'],['notice','공문'],['approval','전자결재'],['voucher','전표'],['attendance','출퇴근'],['report','업무보고'],['manual','매뉴얼'],['settings','설정']];
 function tabsForRole(role){
   if(role==='guest') return [['home','홈'],['gallery','갤러리'],['board','게시판'],['notice','공문']];
-  if(role==='staff') return [['home','홈'],['gallery','갤러리'],['board','게시판'],['notice','공문'],['attendance','출퇴근']];
+  if(role==='staff') return [['home','홈'],['gallery','갤러리'],['board','게시판'],['calendar','캘린더'],['notice','공문'],['attendance','출퇴근']];
   if(role==='admin') return ALL_TABS.filter(([id])=>id!=='settings');
   return ALL_TABS;
 }
@@ -811,13 +811,14 @@ function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
   }[role]||{ icon:'👤', label:'', bg:'rgba(255,255,255,0.08)', bd:'rgba(255,255,255,0.15)', fg:'rgba(255,255,255,0.6)' };
   return (
     <header className="tl-header" style={{ background:'rgba(49,46,129,0.97)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', height:54, position:'sticky', top:0, zIndex:100, boxShadow:'0 1px 0 rgba(255,255,255,0.06),0 4px 24px rgba(0,0,0,0.2)', borderBottom:'1px solid rgba(255,255,255,0.07)' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10 }}>
+      <button onClick={()=>setPage('home')} title="홈으로"
+        style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginRight:10, background:'transparent', border:'none', padding:0, cursor:'pointer', color:'inherit', fontFamily:'inherit' }}>
         <TLLogo size={30} />
-        <div>
+        <div style={{ textAlign:'left' }}>
           <div style={{ fontWeight:800, fontSize:14, letterSpacing:'-0.5px' }}>태림전자공업㈜</div>
           <div style={{ fontSize:9, opacity:0.35, letterSpacing:'1px', marginTop:1 }}>MANAGEMENT SYSTEM v3.1</div>
         </div>
-      </div>
+      </button>
       <nav style={{ display:'flex', gap:1, alignItems:'center', overflowX:'auto' }}>
         {baseTabs.map(([id,label])=>{
           const isApproval=id==='approval';
@@ -1140,6 +1141,139 @@ function BoardPage({ role }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Calendar Page ─────────────────────────────────────────────
+function CalendarPage({ role }) {
+  const canEdit = role!=='guest';
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  const [ym,setYm] = useState(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`);
+  const [events,setEvents] = useState(()=>store.get('tl_calendar')||{});
+  const [editing,setEditing] = useState(null);
+
+  const [y,m] = ym.split('-').map(Number);
+  const firstDay = new Date(y,m-1,1).getDay();
+  const daysInMonth = new Date(y,m,0).getDate();
+  const shiftMonth = (delta)=>{ const d=new Date(y,m-1+delta,1); setYm(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`); };
+
+  const persist = (next)=>{ setEvents(next); store.set('tl_calendar',next); };
+
+  const openNew = (date)=>{ if(!canEdit) return; setEditing({date, idx:-1, title:'', content:'', important:false}); };
+  const openEdit = (date, idx)=>{
+    const ev = (events[date]||[])[idx]; if(!ev) return;
+    setEditing({date, idx, title:ev.title||'', content:ev.content||'', important:!!ev.important});
+  };
+  const saveEdit = ()=>{
+    if(!editing) return;
+    const {date,idx,title,content,important} = editing;
+    if(!title.trim() && !content.trim()){ alert('제목 또는 내용을 입력하세요.'); return; }
+    const next = {...events};
+    const list = [...(next[date]||[])];
+    const newEv = { id: idx>=0?list[idx].id:Date.now(), title:title.trim(), content:content.trim(), important:!!important };
+    if(idx>=0) list[idx]=newEv; else list.push(newEv);
+    next[date]=list; persist(next); setEditing(null);
+  };
+  const deleteEdit = ()=>{
+    if(!editing||editing.idx<0){ setEditing(null); return; }
+    if(!confirm('이 일정을 삭제할까요?')) return;
+    const {date,idx} = editing;
+    const next = {...events};
+    const list = [...(next[date]||[])]; list.splice(idx,1);
+    if(list.length===0) delete next[date]; else next[date]=list;
+    persist(next); setEditing(null);
+  };
+
+  const cells = [];
+  for(let i=0;i<firstDay;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(d);
+  while(cells.length%7!==0) cells.push(null);
+
+  const dayKey = (d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const monthEventCount = Object.keys(events).filter(k=>k.startsWith(`${y}-${String(m).padStart(2,'0')}`)).reduce((s,k)=>s+(events[k]?.length||0),0);
+  const monthImportantCount = Object.keys(events).filter(k=>k.startsWith(`${y}-${String(m).padStart(2,'0')}`)).reduce((s,k)=>s+(events[k]||[]).filter(e=>e.important).length,0);
+
+  const weekDays = ['일','월','화','수','목','금','토'];
+
+  return (
+    <div style={{ padding:'14px 16px' }}>
+      <div style={CARD}>
+        <SecHead icon="📅" title="캘린더 · 일정" action={
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:11, color:C.textHint }}>이번 달 · 일정 {monthEventCount}건 / 중요 {monthImportantCount}건</span>
+          </div>
+        } />
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:14, marginBottom:14 }}>
+          <button onClick={()=>shiftMonth(-1)} style={{ ...btn('ghost'), height:32, padding:'0 14px' }}>← 이전 달</button>
+          <div style={{ fontSize:18, fontWeight:700, color:C.navy, minWidth:140, textAlign:'center', letterSpacing:'-0.3px' }}>{y}년 {m}월</div>
+          <button onClick={()=>shiftMonth(1)} style={{ ...btn('ghost'), height:32, padding:'0 14px' }}>다음 달 →</button>
+          <button onClick={()=>{ const n=new Date(); setYm(`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`); }} style={{ ...btn('navyGhost'), height:32, padding:'0 14px' }}>오늘</button>
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:1, background:C.border, border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden' }}>
+          {weekDays.map((wd,i)=>(
+            <div key={wd} style={{ background:C.tHead, padding:'8px 0', textAlign:'center', fontSize:11, fontWeight:700, color:i===0?C.red:i===6?C.blue:C.textSub, letterSpacing:'0.5px' }}>{wd}</div>
+          ))}
+          {cells.map((d,i)=>{
+            if(!d) return <div key={i} style={{ background:C.borderLight, minHeight:90 }} />;
+            const key = dayKey(d);
+            const list = events[key]||[];
+            const dow = (firstDay+d-1)%7;
+            const isToday = key===todayStr;
+            const dateColor = dow===0?C.red:dow===6?C.blue:C.text;
+            return (
+              <div key={i} onClick={()=>{ if(list.length===0) openNew(key); }} style={{ background:C.white, minHeight:90, padding:'4px 6px', cursor:canEdit&&list.length===0?'pointer':'default', position:'relative' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:2 }}>
+                  <span style={{ fontSize:12, fontWeight:isToday?800:600, color:isToday?'#fff':dateColor, background:isToday?C.navyMid:'transparent', borderRadius:'50%', width:22, height:22, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{d}</span>
+                  {canEdit && <button onClick={(e)=>{ e.stopPropagation(); openNew(key); }} style={{ background:'transparent', border:'none', color:C.textHint, fontSize:14, cursor:'pointer', padding:0, lineHeight:1 }} title="일정 추가">+</button>}
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                  {list.slice(0,3).map((ev,idx)=>(
+                    <button key={ev.id} onClick={(e)=>{ e.stopPropagation(); openEdit(key,idx); }}
+                      style={{ background:ev.important?C.amberBg:C.navyBg, color:ev.important?C.amber:C.navyMid, border:`1px solid ${ev.important?C.amberBorder:C.navyBg2}`, borderRadius:4, padding:'2px 4px', fontSize:10.5, fontWeight:600, textAlign:'left', cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                      {ev.important?'★ ':''}{ev.title||ev.content.slice(0,12)}
+                    </button>
+                  ))}
+                  {list.length>3 && (
+                    <button onClick={(e)=>{ e.stopPropagation(); openEdit(key,3); }} style={{ background:'transparent', border:'none', color:C.textSub, fontSize:10, cursor:'pointer', textAlign:'left', padding:'0 4px' }}>+{list.length-3} 더보기</button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {canEdit && <div style={{ marginTop:10, fontSize:11.5, color:C.textHint }}>💡 빈 날짜를 클릭하면 일정을 추가할 수 있어요. 일정을 클릭하면 수정 / 삭제가 가능합니다. 중요 표시(★)된 일정은 노란색으로 강조됩니다.</div>}
+      </div>
+
+      {editing && (
+        <div onClick={()=>setEditing(null)} style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:16 }}>
+          <div onClick={(e)=>e.stopPropagation()} style={{ background:C.white, borderRadius:16, padding:'22px 24px', width:'100%', maxWidth:460, boxShadow:sh.card }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:C.navy }}>{editing.idx>=0?'일정 수정':'새 일정'} · {editing.date}</div>
+              <button onClick={()=>setEditing(null)} style={{ background:'transparent', border:'none', color:C.textHint, fontSize:18, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, color:C.textSub, marginBottom:4, fontWeight:600 }}>제목</div>
+              <input value={editing.title} onChange={(e)=>setEditing({...editing,title:e.target.value})} placeholder="예: 임차인 미팅" style={baseInput} autoFocus />
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, color:C.textSub, marginBottom:4, fontWeight:600 }}>내용</div>
+              <textarea value={editing.content} onChange={(e)=>setEditing({...editing,content:e.target.value})} rows={4} placeholder="메모를 입력하세요" style={{ ...baseInput, fontFamily:'inherit', resize:'vertical' }} />
+            </div>
+            <label style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, cursor:'pointer', fontSize:13, color:C.text }}>
+              <input type="checkbox" checked={editing.important} onChange={(e)=>setEditing({...editing,important:e.target.checked})} />
+              <span>★ 중요 표시 (노란색으로 강조)</span>
+            </label>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              {editing.idx>=0 && <button onClick={deleteEdit} style={btn('danger')}>삭제</button>}
+              <button onClick={()=>setEditing(null)} style={btn('ghost')}>취소</button>
+              <button onClick={saveEdit} style={btn('primary')}>저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2785,6 +2919,20 @@ function FinancePage({ role }) {
     persistAccounts(next);
   };
 
+  const refreshPrevFromLastMonth=()=>{
+    if(isLocked){ alert(`${monthLabel}은(는) 확정 잠금 상태입니다. 잠금을 먼저 해제해 주세요.`); return; }
+    const prevYms=Object.keys(accountsByYm).filter(m=>m<month).sort();
+    if(!prevYms.length){ alert('이전 달 잔고 데이터가 없습니다.'); return; }
+    const prevYm=prevYms[prevYms.length-1];
+    const prevAccts=accountsByYm[prevYm];
+    const [py,pm]=prevYm.split('-');
+    const prevLabel=`${py}년 ${Number(pm)}월`;
+    if(!confirm(`${prevLabel}의 [현재 잔고]를 ${monthLabel}의 [전월 잔고]로 다시 가져올까요?\n(${monthLabel} 현재 잔고와 거래내역은 그대로 유지)`)) return;
+    const next={...accounts};
+    acctKeys.forEach(k=>{ next[k]={...next[k], prev:prevAccts?.[k]?.curr||0}; });
+    persistAccounts(next);
+  };
+
   // 번호 정리 (수동) + 되돌리기 한 단계
   const [undoState,setUndoState]=useState(()=>store.get('tl_finance_txns_undo')||null);
   const hasUndoForMonth = undoState && undoState.month===month;
@@ -2949,6 +3097,13 @@ function FinancePage({ role }) {
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {autoSaveAt && <span style={{ fontSize:11, color:C.green }}>✓ 자동저장 {autoSaveAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>}
             <span style={{ fontSize:11, color:C.textHint }} title="이전 달의 현재잔고가 자동으로 이번 달의 전월잔고가 됩니다">🔁 자동 이월</span>
+            {!isLocked && (
+              <button onClick={refreshPrevFromLastMonth} title="이전 달의 현재잔고를 다시 가져와 이번 달 전월잔고를 새로고침합니다"
+                style={{ padding:'4px 10px', borderRadius:14, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
+                  background:C.white, color:C.textSub, border:`1px solid ${C.border}` }}>
+                🔄 전월잔고 새로고침
+              </button>
+            )}
             {canLock && (
               <button onClick={toggleLock} title={isLocked?'잠금 해제':'이 달을 확정 상태로 잠그기'}
                 style={{ padding:'4px 10px', borderRadius:14, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit',
@@ -5518,13 +5673,13 @@ function ManualPage() {
       desc:'사이트 주소(taelim.co)에 접속하여 비밀번호 또는 구글 계정으로 로그인합니다',
       steps:[
         { title:'사이트 접속', detail:'인터넷 브라우저(크롬 권장)를 열고 주소창에 taelim.co 를 입력합니다. 즐겨찾기에 저장해 두시면 편합니다.\n(www.taelim.co 도 작동하지만 자동으로 taelim.co 로 이동됩니다)' },
-        { title:'비밀번호로 로그인', detail:'화면 가운데 비밀번호 칸에 입력합니다.\n▸ 박형준 (아버지): taelimmotor\n▸ 박호준 (작은아버지): taelimelectronics\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
+        { title:'비밀번호로 로그인', detail:'화면 가운데 비밀번호 칸에 입력합니다.\n▸ 박형준 (아버지): taelimmotor\n▸ 박호준 (작은아버지): taelimmotor-1\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
         { title:'구글 계정으로 로그인 (신규)', detail:'상단의 [G Google 계정으로 계속] 버튼을 클릭하면 본인 지메일/구글 계정으로 바로 가입·로그인할 수 있습니다.\n처음 로그인하는 사람은 자동으로 [게스트] 권한이 부여되어 홈/갤러리/게시판/공문만 볼 수 있습니다.\n사장님이 설정에서 권한을 승격해 주시면 더 많은 메뉴를 볼 수 있습니다.' },
         { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
         { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
         { title:'비밀번호를 잊어버렸을 때', detail:'설정 탭에서 비밀번호를 변경할 수 있습니다. 접속이 안 될 경우 박장혁 이사에게 연락 주세요.' },
       ],
-      tip:'💡 사장님(마스터)은 master2024 비밀번호로 로그인하시면 모든 메뉴와 [설정] 탭에 접근할 수 있습니다. 처음 가입하는 직원/지인은 [게스트]로 시작하니 사장님이 권한을 부여해주세요.',
+      tip:'💡 처음 가입하는 직원/지인은 [게스트]로 시작하니 권한을 부여할 수 있어요.',
     },
     {
       icon:'⚡', title:'검침 입력', color:'#d97706',
@@ -5628,7 +5783,7 @@ function ManualPage() {
       steps:[
         { title:'자금현황 탭 클릭', detail:'상단 메뉴에서 [자금현황]을 클릭합니다.' },
         { title:'월 이동', detail:'화면 중앙의 [← 2026년 5월 →] 버튼으로 보고 싶은 달로 이동합니다.\n월별로 잔고와 거래내역이 따로 저장되므로 4월 내역은 4월에서만, 5월 내역은 5월에서만 보입니다.' },
-        { title:'자동 이월 (전월 잔고 → 이번달 전월잔고)', detail:'이전 달의 [현재 잔고]가 자동으로 이번 달의 [전월 잔고]로 넘어옵니다. 별도 입력 불필요.\n(예금·잔고 현황 카드 우측에 🔁 자동 이월 표시)' },
+        { title:'자동 이월 (전월 잔고 → 이번달 전월잔고)', detail:'이전 달의 [현재 잔고]가 자동으로 이번 달의 [전월 잔고]로 넘어옵니다. 별도 입력 불필요.\n(예금·잔고 현황 카드 우측에 🔁 자동 이월 표시)\n\n※ 이번 달을 한 번이라도 저장한 뒤에 전월(예: 4월) 잔고를 수정했다면, 이번 달 [전월 잔고]는 자동으로 갱신되지 않아요.\n그럴 땐 우측 [🔄 전월잔고 새로고침] 버튼을 누르면 전월의 현재잔고를 다시 가져옵니다.' },
         { title:'통장 내역 가져오기 (XLS)', detail:'은행에서 받은 거래내역 엑셀 파일을 [📂 보통018/보통032/MMF 가져오기] 버튼으로 업로드하면\n해당 월 거래만 자동으로 추출되고, 중복된 행은 자동 제외됩니다. 잔액도 함께 업데이트됩니다.' },
         { title:'입출금 내역 수기 입력', detail:'[+ 행 추가] 버튼으로 직접 입력할 수도 있습니다.\n날짜·계좌·적요·입금·출금을 입력하면 자동 정렬 및 번호 매김됩니다.' },
         { title:'잔고 직접 수정', detail:'[예금·잔고 현황] 표에서 전월/현재 잔고를 직접 입력할 수 있습니다. 통장과 비교하여 맞춰 주세요.' },
@@ -5784,8 +5939,8 @@ ${sections.map(s=>`
 
       <div style={{ marginTop:18, background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'15px 18px', fontSize:13, color:C.navyDark, lineHeight:2 }}>
         <div style={{ fontWeight:800, marginBottom:6, fontSize:13.5 }}>📌 꼭 알아두세요</div>
-        <div>· <b>비밀번호</b> — 박형준: <b>taelimmotor</b> / 박호준: <b>taelimelectronics</b> / 직원1: <b>taelim1staff</b> / 직원2: <b>taelim2staff</b> / Guest1·2: <b>taelimguest1·2</b> (보기 전용)</div>
-        <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으니 주의!</div>
+        <div>· <b>비밀번호</b> — 박형준: <b>taelimmotor</b> / 박호준: <b>taelimmotor-1</b> / 직원1: <b>taelim1staff</b> / 직원2: <b>taelim2staff</b> / Guest1·2: <b>taelimguest1·2</b> (보기 전용)</div>
+        <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으나, 설정 탭 ☁️ <b>클라우드 백업/복원</b>으로 복구 가능합니다.</div>
         <div>· <b>Telegram 알림</b> — 설정 탭에서 봇 토큰을 설정해야 긴급호출 알림이 작동합니다.</div>
         <div>· <b>문의</b> — 시스템 문제 시 박장혁 이사 ({CO_TEL}) 에게 연락 주세요.</div>
       </div>
@@ -5950,6 +6105,7 @@ export default function App() {
         {page==='home'      && <HomePage     role={role} setPage={setPage} />}
         {page==='gallery'   && <GalleryPage  role={role} />}
         {page==='board'     && <BoardPage    role={role} />}
+        {page==='calendar'  && <CalendarPage role={role} />}
         {page==='input'     && <InputPage    reading={reading} onChange={onChange} onSave={onSave} saveMsg={saveMsg} />}
         {page==='invoice'   && <InvoicePage  reading={reading} tenants={tenants} calc={calc} />}
         {page==='quarterly' && <QuarterlyPage history={history} tenants={tenants} />}
