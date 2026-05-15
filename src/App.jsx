@@ -3610,7 +3610,7 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
       arr.forEach(r=>{
         const k=r.key, v=r.value;
         if(k&&k.startsWith('tl_')&&v!==undefined){
-          try{ localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); restored++; }catch{}
+          try{ localStorage.setItem(k, JSON.stringify(v)); restored++; }catch{}
         }
       });
       setBkMsg(`✓ ${restored}개 항목 복원 — 새로고침합니다…`);
