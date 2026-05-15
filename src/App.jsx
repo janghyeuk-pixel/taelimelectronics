@@ -4113,6 +4113,12 @@ function WorkReportPage() {
   const [issues,setIssues]=useState('');
   const [nextTasks,setNextTasks]=useState([{id:Date.now()+1,text:''}]);
   const [weekNote,setWeekNote]=useState('');
+  const [photos,setPhotos]=useState([]);
+  const [recipient,setRecipient]=useState('both');
+  const [urgent,setUrgent]=useState(false);
+  const [submitMsg,setSubmitMsg]=useState('');
+  const [photoModal,setPhotoModal]=useState(null);
+  const photoFileRef=useRef(null);
 
   const saveAuthor=(v)=>{ setAuthor(v); store.set('tl_report_author',v); };
   const addTodayTask=()=>setTodayTasks(t=>[...t,{id:Date.now(),done:false,text:''}]);
@@ -4121,6 +4127,71 @@ function WorkReportPage() {
   const addNextTask=()=>setNextTasks(t=>[...t,{id:Date.now(),text:''}]);
   const updNextTask=(id,val)=>setNextTasks(t=>t.map(r=>r.id===id?{...r,text:val}:r));
   const delNextTask=(id)=>setNextTasks(t=>t.filter(r=>r.id!==id));
+
+  const handlePhotoUpload=async(e)=>{
+    const files=Array.from(e.target.files||[]);
+    if(!files.length) return;
+    const added=[];
+    for(const f of files){
+      const url=await compressImage(f,1400,0.7);
+      if(url) added.push({ id:Date.now()+Math.random(), url, name:f.name });
+    }
+    setPhotos(p=>[...p,...added]);
+    if(photoFileRef.current) photoFileRef.current.value='';
+  };
+  const delPhoto=(id)=>setPhotos(p=>p.filter(x=>x.id!==id));
+
+  const buildReportContent=()=>{
+    const isWeekly=reportType==='weekly';
+    const periodText=isWeekly?getWeekRange(date):dateLabel(date);
+    const lines=[];
+    lines.push(`📅 ${isWeekly?'주간':'일일'} 업무 보고`);
+    lines.push(`기간: ${periodText}`);
+    lines.push('');
+    lines.push(`【${isWeekly?'주간':'금일'} 수행 업무】`);
+    todayTasks.filter(t=>t.text.trim()).forEach(t=>lines.push(`${t.done?'✅':'○'} ${t.text}`));
+    if(issues.trim()){ lines.push(''); lines.push('【특이사항 / 비고】'); lines.push(issues.trim()); }
+    const validNext=nextTasks.filter(t=>t.text.trim());
+    if(validNext.length){ lines.push(''); lines.push(`【${isWeekly?'차주':'익일'} 예정 업무】`); validNext.forEach((t,i)=>lines.push(`${i+1}. ${t.text}`)); }
+    if(isWeekly && weekNote.trim()){ lines.push(''); lines.push('【주간 종합 의견】'); lines.push(weekNote.trim()); }
+    return lines.join('\n');
+  };
+
+  const submitToApproval=async()=>{
+    if(!author.trim()){ setSubmitMsg('⚠ 작성자 이름을 입력하세요.'); setTimeout(()=>setSubmitMsg(''),4000); return; }
+    const validTasks=todayTasks.filter(t=>t.text.trim());
+    if(validTasks.length===0 && !issues.trim()){ setSubmitMsg('⚠ 수행 업무 또는 특이사항을 입력하세요.'); setTimeout(()=>setSubmitMsg(''),4000); return; }
+    const isWeekly=reportType==='weekly';
+    const periodText=isWeekly?getWeekRange(date):dateLabel(date);
+    const title=`${isWeekly?'주간':'일일'} 업무보고 · ${periodText}`;
+    const content=buildReportContent();
+    const item={
+      id:Date.now(), type:'report', urgent,
+      title, content, author:author.trim(),
+      recipient, photos: photos.map(p=>({id:p.id, url:p.url, name:p.name})),
+      submittedAt:new Date().toISOString(), status:'pending',
+      reviewNote:'', reviewedAt:null,
+    };
+    const existing=store.get('tl_approvals')||[];
+    store.set('tl_approvals',[item,...existing]);
+
+    const token=store.get('tl_telegram_token');
+    const admin=store.get('tl_telegram_admin');
+    const admin2=store.get('tl_telegram_admin2');
+    if(!token){ setSubmitMsg('✓ 전자결재 제출 완료 (Telegram 미설정 — 결재 탭에서 확인)'); setTimeout(()=>setSubmitMsg(''),6000); return; }
+    const urgTag=urgent?'🚨 <b>[긴급]</b> ':'';
+    const recipLabel={hyungjun:'박형준 대표이사',hojun:'박호준 이사',both:'박형준 대표이사 + 박호준 이사'}[recipient]||'';
+    const photoNote=photos.length?`\n📷 첨부 사진: ${photos.length}장`:'';
+    const txt=`${urgTag}📋 ${isWeekly?'주간':'일일'} <b>업무보고</b>\n\n작성자: ${author.trim()}\n수신: ${recipLabel}\n기간: ${periodText}${photoNote}\n\n${content.slice(0,500)}\n\n🕒 ${new Date().toLocaleString('ko-KR')}\n\n👉 <i>전자결재 탭에서 확인 후 처리해주세요.</i>`;
+    const targets=[];
+    if((recipient==='hyungjun'||recipient==='both')&&admin) targets.push({chat:admin,name:'박형준'});
+    if((recipient==='hojun'||recipient==='both')&&admin2) targets.push({chat:admin2,name:'박호준'});
+    if(targets.length===0){ setSubmitMsg('✓ 제출 완료 (수신자 Chat ID 미설정)'); setTimeout(()=>setSubmitMsg(''),6000); return; }
+    const results=await Promise.all(targets.map(t=>sendTelegram(token,t.chat,txt)));
+    const oks=results.filter(r=>r.ok).length;
+    setSubmitMsg(oks===targets.length?`✓ 제출 완료 · ${targets.map(t=>t.name).join('·')}님께 Telegram 알림`:`✓ 제출 완료 · 일부 알림 실패 (${oks}/${targets.length})`);
+    setTimeout(()=>setSubmitMsg(''),6000);
+  };
 
   const dateLabel=(ds)=>{
     const d=new Date(ds); if(isNaN(d)) return ds;
@@ -4287,10 +4358,62 @@ td{padding:7px 10px;border:1px solid #ddd;font-size:12px;vertical-align:middle;}
         </div>
       )}
 
-      <div style={{ display:'flex', gap:10, marginTop:8 }}>
-        <button onClick={handlePrint} style={btn('primary')}>🖨️ PDF 출력 / 인쇄</button>
-        <span style={{ fontSize:12, color:C.textSub, alignSelf:'center' }}>서명란 포함 A4 양식으로 출력됩니다</span>
+      <div style={CARD}>
+        <SecHead icon="📷" title="사진 첨부" action={
+          <button onClick={()=>{ if(photoFileRef.current){ photoFileRef.current.value=''; photoFileRef.current.click(); } }}
+            style={{ ...btn('navyGhost'), height:28, padding:'0 12px', fontSize:12 }}>+ 사진 추가</button>
+        } />
+        <input ref={photoFileRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handlePhotoUpload} />
+        {photos.length===0 ? (
+          <div style={{ color:C.textHint, fontSize:13, textAlign:'center', padding:'24px 0', border:`2px dashed ${C.border}`, borderRadius:10 }}>
+            보고서에 첨부할 사진을 추가하세요. (현장 사진, 영수증, 자료 등)
+          </div>
+        ) : (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:10 }}>
+            {photos.map(p=>(
+              <div key={p.id} style={{ position:'relative', background:C.borderLight, borderRadius:10, overflow:'hidden', border:`1px solid ${C.border}` }}>
+                <img src={p.url} alt={p.name} onClick={()=>setPhotoModal(p.url)}
+                  style={{ width:'100%', height:110, objectFit:'cover', display:'block', cursor:'zoom-in' }} />
+                <button onClick={()=>delPhoto(p.id)}
+                  style={{ position:'absolute', top:4, right:4, background:'rgba(0,0,0,0.6)', border:'none', color:'#fff', borderRadius:'50%', width:22, height:22, cursor:'pointer', fontSize:14, lineHeight:1, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      <div style={CARD}>
+        <SecHead icon="📤" title="전자결재로 제출" />
+        <div style={{ marginBottom:10 }}>
+          <FL text="결재자 선택" />
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {[['hyungjun','👑 박형준 대표이사'],['hojun','👑 박호준 이사'],['both','👑 두 분 모두']].map(([v,l])=>(
+              <button key={v} onClick={()=>setRecipient(v)}
+                style={{ ...btn(recipient===v?'active':'ghost'), height:32, fontSize:12 }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <button onClick={()=>setUrgent(!urgent)}
+            style={{ ...btn(urgent?'danger':'secondary'), height:32, fontSize:12 }}>
+            {urgent?'🚨 긴급으로 표시됨':'긴급 아님'}
+          </button>
+        </div>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+          <button onClick={handlePrint} style={btn('secondary')}>🖨️ PDF 출력 / 인쇄</button>
+          <button onClick={submitToApproval} style={btn('primary')}>📤 전자결재로 제출</button>
+          {submitMsg && <span style={{ fontSize:12.5, fontWeight:600, color:submitMsg.includes('✓')?C.green:submitMsg.includes('⚠')?C.red:C.textSub }}>{submitMsg}</span>}
+        </div>
+        <div style={{ marginTop:10, fontSize:11.5, color:C.textHint, lineHeight:1.6 }}>
+          제출하면 전자결재 탭의 [결재 대기] 목록에 사진과 함께 올라가고, 결재자에게 Telegram 알림이 발송됩니다.
+        </div>
+      </div>
+
+      {photoModal && (
+        <div onClick={()=>setPhotoModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300, padding:16, cursor:'zoom-out' }}>
+          <img src={photoModal} alt="첨부 사진" style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain' }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -4803,6 +4926,7 @@ function ApprovalPage({ role }) {
   const [emergLog,setEmergLog]=useState(()=>store.get('tl_emergency_log')||[]);
   const [emergCool,setEmergCool]=useState(false);
   const [renotifyAt,setRenotifyAt]=useState(null);
+  const [photoModal,setPhotoModal]=useState(null);
   const authorName=store.get('tl_user_name')||role;
 
   const saveItems=(next)=>{ setItems(next); store.set('tl_approvals',next); };
@@ -4949,8 +5073,8 @@ function ApprovalPage({ role }) {
         ))}
       </div>
 
-      {/* 결재 요청 (직원) */}
-      {tab==='submit' && role==='staff' && (
+      {/* 결재 요청 (직원/사장님) */}
+      {tab==='submit' && (role==='staff'||role==='master') && (
         <div style={CARD}>
           <SecHead icon="📝" title="결재 요청 작성" />
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
@@ -5004,6 +5128,17 @@ function ApprovalPage({ role }) {
                 </div>
               </div>
               {item.content && <div style={{ background:C.navyBg, borderRadius:10, padding:'12px 14px', fontSize:13, color:C.textMid, lineHeight:1.8, marginBottom:12, whiteSpace:'pre-wrap' }}>{item.content}</div>}
+              {item.photos?.length>0 && (
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11.5, color:C.textSub, marginBottom:6, fontWeight:600 }}>📷 첨부 사진 ({item.photos.length}장)</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(120px,1fr))', gap:8 }}>
+                    {item.photos.map(p=>(
+                      <img key={p.id} src={p.url} alt={p.name||''} onClick={()=>setPhotoModal(p.url)}
+                        style={{ width:'100%', height:90, objectFit:'cover', borderRadius:8, border:`1px solid ${C.border}`, cursor:'zoom-in', display:'block' }} />
+                    ))}
+                  </div>
+                </div>
+              )}
               {role==='admin' && (
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
                   <input value={reviewNotes[item.id]||''} onChange={e=>setReviewNotes(n=>({...n,[item.id]:e.target.value}))}
@@ -5079,6 +5214,12 @@ function ApprovalPage({ role }) {
           설정 탭 → "Telegram 알림 설정"에서 봇 토큰과 대표님 Chat ID를 등록하세요.
         </div>
       </div>
+
+      {photoModal && (
+        <div onClick={()=>setPhotoModal(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300, padding:16, cursor:'zoom-out' }}>
+          <img src={photoModal} alt="첨부 사진" style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain' }} />
+        </div>
+      )}
     </div>
   );
 }
