@@ -13,14 +13,18 @@ import {
 
 const DEFAULT_PASSWORD = "taelim1staff";
 // 추가 사용자 — 이름과 권한 매핑
-const EXTRA_USERS = [
-  { name:'박형준', role:'admin',  pw:'taelimmotor'        }, // 대표이사
-  { name:'박호준', role:'admin',  pw:'taelimmotor-1'  }, // 이사
-  { name:'직원1',   role:'staff',  pw:'taelim1staff'       }, // Staff1 (= DEFAULT_PASSWORD)
-  { name:'직원2',   role:'staff',  pw:'taelim2staff'       }, // Staff2
-  { name:'Guest1',  role:'guest',  pw:'taelimguest1'       }, // 게스트1 (보기만)
-  { name:'Guest2',  role:'guest',  pw:'taelimguest2'       }, // 게스트2 (보기만)
+const EXTRA_USERS_DEFAULTS = [
+  { id:'father', name:'아버지',     formal:'박형준', role:'admin', pw:'taelimmotor'    }, // 박형준 대표이사
+  { id:'uncle',  name:'작은아버지',  formal:'박호준', role:'admin', pw:'taelimmotor-1'  }, // 박호준 이사
+  { id:'staff1', name:'직원1',      formal:'직원1',  role:'staff', pw:'taelim1staff'   },
+  { id:'staff2', name:'직원2',      formal:'직원2',  role:'staff', pw:'taelim2staff'   },
+  { id:'guest1', name:'Guest1',    formal:'Guest1', role:'guest', pw:'taelimguest1'   },
+  { id:'guest2', name:'Guest2',    formal:'Guest2', role:'guest', pw:'taelimguest2'   },
 ];
+function getExtraUsers(){
+  const overrides=(typeof localStorage!=='undefined')?(JSON.parse(localStorage.getItem('tl_user_pw_overrides')||'null')||{}):{};
+  return EXTRA_USERS_DEFAULTS.map(u=>({ ...u, pw: overrides[u.id]||u.pw }));
+}
 const CO_ADDR = "우08377 서울특별시 구로구 디지털로 33길 58";
 const CO_TEL  = "02-867-2000";
 const CO_FAX  = "02-863-6750";
@@ -3498,6 +3502,23 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const [pw1,setPw1]=useState(''); const [pw2,setPw2]=useState(''); const [pwMsg,setPwMsg]=useState('');
   const [apw1,setApw1]=useState(''); const [apw2,setApw2]=useState(''); const [apwMsg,setApwMsg]=useState('');
   const [mpw1,setMpw1]=useState(''); const [mpw2,setMpw2]=useState(''); const [mpwMsg,setMpwMsg]=useState('');
+  const [userPws,setUserPws]=useState(()=>{
+    const overrides=store.get('tl_user_pw_overrides')||{};
+    const out={};
+    EXTRA_USERS_DEFAULTS.forEach(u=>{ out[u.id]=overrides[u.id]||u.pw; });
+    return out;
+  });
+  const [userPwMsg,setUserPwMsg]=useState('');
+  const saveUserPw=(id)=>{
+    const newPw=(userPws[id]||'').trim();
+    if(!newPw){ setUserPwMsg('⚠ 비밀번호를 입력하세요.'); setTimeout(()=>setUserPwMsg(''),3000); return; }
+    const overrides=store.get('tl_user_pw_overrides')||{};
+    overrides[id]=newPw;
+    store.set('tl_user_pw_overrides',overrides);
+    const u=EXTRA_USERS_DEFAULTS.find(x=>x.id===id);
+    setUserPwMsg(`✓ ${u.name} 비밀번호가 저장됐습니다.`);
+    setTimeout(()=>setUserPwMsg(''),3000);
+  };
   // Telegram
   const [tgToken,setTgToken]=useState(()=>store.get('tl_telegram_token')||'');
   const [tgAdmin,setTgAdmin]=useState(()=>store.get('tl_telegram_admin')||'');
@@ -3891,6 +3912,34 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
           )}
         </div>
       </div>
+
+      {role==='master' && (
+        <div style={CARD}>
+          <SecHead icon="👥" title="사용자 비밀번호 관리" />
+          <div style={{ fontSize:12, color:C.textSub, marginBottom:14, lineHeight:1.6 }}>
+            아버지·작은아버지·직원·게스트가 로그인할 때 쓰는 비밀번호를 변경합니다. (마스터 비번은 위 카드에서 따로 관리)
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+            {EXTRA_USERS_DEFAULTS.map(u=>{
+              const roleLabel=u.role==='admin'?'👑 이사':u.role==='staff'?'👤 직원':'👁 게스트';
+              return (
+                <div key={u.id} style={{ background:C.borderLight, padding:'12px 14px', borderRadius:10, border:`1px solid ${C.border}` }}>
+                  <div style={{ fontSize:12.5, fontWeight:600, color:C.navy, marginBottom:6 }}>
+                    {u.name} <span style={{ fontSize:11, color:C.textHint, fontWeight:400 }}>({u.formal} · {roleLabel})</span>
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <input type="text" value={userPws[u.id]||''}
+                      onChange={(e)=>setUserPws(p=>({...p,[u.id]:e.target.value}))}
+                      style={{ ...baseInput, flex:1, background:C.white }} />
+                    <button onClick={()=>saveUserPw(u.id)} style={{ ...btn('navyGhost'), height:34, padding:'0 14px' }}>저장</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {userPwMsg && <div style={{ marginTop:12, fontSize:12.5, fontWeight:600, color:userPwMsg.includes('✓')?C.green:C.red }}>{userPwMsg}</div>}
+        </div>
+      )}
 
       <div style={CARD}>
         <SecHead icon="🏢" title="임차인 설정 (청구용)" />
@@ -5814,7 +5863,7 @@ function ManualPage() {
       desc:'사이트 주소(taelim.co)에 접속하여 비밀번호 또는 구글 계정으로 로그인합니다',
       steps:[
         { title:'사이트 접속', detail:'인터넷 브라우저(크롬 권장)를 열고 주소창에 taelim.co 를 입력합니다. 즐겨찾기에 저장해 두시면 편합니다.\n(www.taelim.co 도 작동하지만 자동으로 taelim.co 로 이동됩니다)' },
-        { title:'비밀번호로 로그인', detail:'화면 가운데 비밀번호 칸에 입력합니다.\n▸ 박형준 (아버지): taelimmotor\n▸ 박호준 (작은아버지): taelimmotor-1\n▸ 직원1 (Staff1): taelim1staff\n▸ 직원2 (Staff2): taelim2staff\n▸ Guest1 (보기만): taelimguest1\n▸ Guest2 (보기만): taelimguest2\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
+        { title:'비밀번호로 로그인', detail:'화면 가운데 비밀번호 칸에 본인의 비밀번호를 입력합니다.\n계정 종류:\n▸ 아버지 (박형준 이사)\n▸ 작은아버지 (박호준 이사)\n▸ 직원1 / 직원2\n▸ Guest1 / Guest2 (보기 전용)\n\n비밀번호는 설정 탭 → "사용자 비밀번호 관리"에서 사장님이 변경하실 수 있습니다.\n(비밀번호는 대소문자를 구분합니다. Caps Lock이 켜져 있으면 안 됩니다.)' },
         { title:'구글 계정으로 로그인 (신규)', detail:'상단의 [G Google 계정으로 계속] 버튼을 클릭하면 본인 지메일/구글 계정으로 바로 가입·로그인할 수 있습니다.\n처음 로그인하는 사람은 자동으로 [게스트] 권한이 부여되어 홈/갤러리/게시판/공문만 볼 수 있습니다.\n사장님이 설정에서 권한을 승격해 주시면 더 많은 메뉴를 볼 수 있습니다.' },
         { title:'로그인 버튼 클릭', detail:'비밀번호 입력 후 파란 [로그인] 버튼을 클릭합니다. 잠시 기다리면 메인 화면으로 이동합니다.' },
         { title:'로그아웃', detail:'오른쪽 상단 [로그아웃] 버튼을 누르면 안전하게 종료됩니다. 다른 사람이 사용할 수 있는 공용 PC에서는 반드시 로그아웃 해주세요.' },
@@ -6080,7 +6129,7 @@ ${sections.map(s=>`
 
       <div style={{ marginTop:18, background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'15px 18px', fontSize:13, color:C.navyDark, lineHeight:2 }}>
         <div style={{ fontWeight:800, marginBottom:6, fontSize:13.5 }}>📌 꼭 알아두세요</div>
-        <div>· <b>비밀번호</b> — 박형준: <b>taelimmotor</b> / 박호준: <b>taelimmotor-1</b> / 직원1: <b>taelim1staff</b> / 직원2: <b>taelim2staff</b> / Guest1·2: <b>taelimguest1·2</b> (보기 전용)</div>
+        <div>· <b>비밀번호</b> — 아버지·작은아버지·직원·게스트 모두 설정 탭 → "사용자 비밀번호 관리"에서 사장님이 변경 가능합니다.</div>
         <div>· <b>데이터 저장</b> — 이 기기(PC/스마트폰)에 저장됩니다. 브라우저 캐시 삭제 시 초기화될 수 있으나, 설정 탭 ☁️ <b>클라우드 백업/복원</b>으로 복구 가능합니다.</div>
         <div>· <b>Telegram 알림</b> — 설정 탭에서 봇 토큰을 설정해야 긴급호출 알림이 작동합니다.</div>
         <div>· <b>문의</b> — 시스템 문제 시 박장혁 이사 ({CO_TEL}) 에게 연락 주세요.</div>
@@ -6152,8 +6201,8 @@ export default function App() {
   const handleLogin=async(email,password)=>{
     // ── 로컬 비밀번호 우선 ──
     if(password===masterPw){ setLoggedIn(true); setRole('master'); store.set('tl_user_name','마스터'); return {ok:true}; }
-    // 등록된 사용자(EXTRA_USERS) 매칭 — 박형준/박호준/직원1/직원2
-    const extra=EXTRA_USERS.find(u=>u.pw===password);
+    // 등록된 사용자 매칭 — 아버지/작은아버지/직원1/직원2/게스트 (비번은 설정 탭에서 변경 가능)
+    const extra=getExtraUsers().find(u=>u.pw===password);
     if(extra){ setLoggedIn(true); setRole(extra.role); store.set('tl_user_name',extra.name); return {ok:true}; }
     if(password===adminPw){  setLoggedIn(true); setRole('admin');  store.set('tl_user_name','대표');   return {ok:true}; }
     if(password===savedPw){  setLoggedIn(true); setRole('staff');  store.set('tl_user_name','직원');   return {ok:true}; }
