@@ -611,69 +611,132 @@ function RegisterPage({ onBack, onDone }) {
     setLoading(false);
   };
 
-  const features=[['📊','관리비 청구'],['⚡','검침 관리'],['📋','전자결재'],['🚨','긴급호출'],['📄','전표'],['📅','출퇴근']];
+  // ─ Museum palette (홈/로그인과 동일) ─────────────────
+  const paper = '#fafaf7';
+  const ink   = '#1a1a1a';
+  const sub   = '#6e6a64';
+  const hair  = '#d9d6cf';
+  const serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+
+  const fieldLabel = { fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: '2.5px', textTransform: 'uppercase', color: sub, marginBottom: 8 };
+  const fieldInput = { width:'100%', boxSizing:'border-box', background:'#fff', border:`1px solid ${hair}`, borderRadius:0, padding:'13px 14px', fontSize:14, color:ink, fontFamily:sans, outline:'none', transition:'border-color 0.2s' };
+
+  const fields = [
+    ['Name · 이름 *','name','text','홍길동'],
+    ['Email · 이메일 *','email','email','example@email.com'],
+    ['Password · 비밀번호 * (6자 이상)','password','password',''],
+    ['Confirm Password · 비밀번호 확인 *','pw2','password',''],
+    ['Department · 부서/직책','dept','text','예: 소방안전관리'],
+  ];
 
   if(done) return (
-    <div style={{ display:'flex', minHeight:'100vh', alignItems:'center', justifyContent:'center', background:'linear-gradient(135deg,#06061a,#0f0f2e,#0a1628)', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif" }}>
-      <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:20, padding:'48px 40px', width:380, textAlign:'center' }}>
-        <div style={{ fontSize:48, marginBottom:20 }}>✅</div>
-        <div style={{ fontSize:20, fontWeight:800, color:'#fff', marginBottom:10 }}>가입 완료!</div>
-        <div style={{ fontSize:13, color:'rgba(255,255,255,0.5)', lineHeight:1.9, marginBottom:28 }}>
-          바로 로그인하실 수 있습니다.<br/>(초기 권한은 게스트 — 사장님께 권한 상향을 요청하세요)
+    <div style={{ minHeight:'100vh', background: paper, color: ink, fontFamily: sans, padding:'clamp(40px, 6vw, 72px) clamp(20px, 5vw, 56px)', boxSizing:'border-box', display:'flex', justifyContent:'center', alignItems:'flex-start' }}>
+      <div style={{ width:'100%', maxWidth: 640 }}>
+        <div style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: '4px', textTransform: 'uppercase', color: sub, marginBottom: 20 }}>
+          Tae Lim Electronics Co., Ltd.
         </div>
-        <button onClick={onBack} style={{ background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'13px 32px', fontSize:14, fontWeight:700, color:'#fff', cursor:'pointer' }}>로그인으로 돌아가기</button>
+        <div style={{ width: 44, height: 1, background: ink, marginBottom: 24 }} />
+        <h1 style={{ fontFamily: serifKR, fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: 1.1, color: ink, margin:'0 0 12px 0' }}>
+          가입 완료
+        </h1>
+        <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 'clamp(17px, 2vw, 21px)', color: sub, marginBottom: 'clamp(40px, 6vw, 56px)' }}>
+          Welcome aboard.
+        </div>
+        <div style={{ height: 1, background: ink, marginBottom: 24 }} />
+        <p style={{ fontFamily: serifKR, fontSize: 17, lineHeight: 1.9, color: ink, margin: '0 0 36px 0' }}>
+          바로 로그인하실 수 있습니다.<br/>
+          <span style={{ fontFamily: serifEN, fontStyle:'italic', color: sub, fontSize: 15 }}>
+            (초기 권한은 게스트 — 사장님께 권한 상향을 요청하세요.)
+          </span>
+        </p>
+        <button onClick={onBack}
+          style={{ width:'100%', boxSizing:'border-box', background: ink, border:'none', borderRadius:0, padding:'16px', fontSize: 12, fontWeight: 600, letterSpacing:'3.5px', textTransform:'uppercase', color:'#fff', cursor:'pointer', fontFamily: sans, transition:'background 0.15s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='#000'}
+          onMouseLeave={e=>e.currentTarget.style.background=ink}>
+          ← Back to Sign In · 로그인으로
+        </button>
       </div>
     </div>
   );
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', overflow:'hidden' }}>
-      <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#06061a 0%,#0f0f2e 40%,#0a1628 100%)' }} />
-      <div style={{ position:'absolute', inset:0, backgroundImage:'linear-gradient(rgba(99,102,241,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(99,102,241,0.04) 1px,transparent 1px)', backgroundSize:'36px 36px' }} />
+    <div style={{ minHeight:'100vh', background: paper, color: ink, fontFamily: sans, padding:'clamp(40px, 6vw, 72px) clamp(20px, 5vw, 56px)', boxSizing:'border-box', display:'flex', justifyContent:'center', alignItems:'flex-start' }}>
+      <div style={{ width:'100%', maxWidth: 640 }}>
 
-      <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'60px 64px', position:'relative', zIndex:1, minWidth:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:32 }}>
-          <TLLogoHero size={64} />
-          <div>
-            <div style={{ color:'#fff', fontSize:22, fontWeight:900, letterSpacing:'-0.5px' }}>태림전자공업㈜</div>
-            <div style={{ color:'rgba(255,255,255,0.35)', fontSize:10, letterSpacing:'2px', marginTop:4, textTransform:'uppercase' }}>TAE LIM ELECTRONICS CO., LTD.</div>
+        {/* ─ Kicker ─ */}
+        <div style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: '4px', textTransform: 'uppercase', color: sub, marginBottom: 20 }}>
+          Tae Lim Electronics Co., Ltd.
+        </div>
+        <div style={{ width: 44, height: 1, background: ink, marginBottom: 24 }} />
+
+        {/* ─ Title ─ */}
+        <h1 style={{ fontFamily: serifKR, fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: 1.1, color: ink, margin:'0 0 12px 0' }}>
+          회원가입
+        </h1>
+        <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 'clamp(17px, 2vw, 21px)', color: sub, marginBottom: 'clamp(32px, 5vw, 48px)' }}>
+          Create an account
+        </div>
+
+        {/* ─ Intro ─ */}
+        <p style={{ fontFamily: serifKR, fontSize: 16, lineHeight: 1.95, color: ink, margin: '0 0 14px 0' }}>
+          직원 계정을 만들어 시스템에 접근하세요.<br/>
+          <span style={{ fontFamily: serifEN, fontStyle:'italic', color: sub, fontSize: 14.5 }}>
+            가입 후 관리자 승인이 필요합니다.
+          </span>
+        </p>
+        <div style={{ fontFamily: sans, fontSize: 11, letterSpacing:'1.5px', color: sub, marginBottom: 'clamp(40px, 6vw, 56px)' }}>
+          관리비 청구 · 검침 관리 · 전자결재 · 긴급호출 · 전표 · 출퇴근
+        </div>
+
+        {/* ─ Form header ─ */}
+        <div style={{ height: 1, background: ink, marginBottom: 20 }} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 28 }}>
+          <div style={{ fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: ink }}>
+            Sign Up · 가입 신청
+          </div>
+          <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 12, color: sub }}>
+            Staff Account
           </div>
         </div>
-        <div style={{ color:'rgba(255,255,255,0.5)', fontSize:13, lineHeight:2, marginBottom:32 }}>
-          직원 계정을 만들어 시스템에 접근하세요.<br/>가입 후 관리자 승인이 필요합니다.
-        </div>
-        <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
-          {features.map(([icon,label])=>(
-            <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'7px 13px', display:'flex', alignItems:'center', gap:7 }}>
-              <span style={{ fontSize:13 }}>{icon}</span>
-              <span style={{ fontSize:11, color:'rgba(255,255,255,0.45)' }}>{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <div style={{ width:440, background:'rgba(255,255,255,0.02)', backdropFilter:'blur(28px)', WebkitBackdropFilter:'blur(28px)', borderLeft:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', padding:'40px', position:'relative', zIndex:1, overflowY:'auto' }}>
-        <div style={{ width:'100%' }}>
-          <div style={{ textAlign:'center', marginBottom:28 }}>
-            <div style={{ fontSize:22, fontWeight:800, color:'#fff' }}>회원가입</div>
-            <div style={{ fontSize:12, color:'rgba(255,255,255,0.35)', marginTop:4 }}>직원 계정 생성</div>
+        {/* ─ Fields ─ */}
+        {fields.map(([label,field,type,ph])=>(
+          <div key={field} style={{ marginBottom: 16 }}>
+            <div style={fieldLabel}>{label}</div>
+            <input type={type} placeholder={ph} value={form[field]}
+              onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
+              onFocus={e=>e.currentTarget.style.borderColor=ink}
+              onBlur={e=>e.currentTarget.style.borderColor=hair}
+              style={fieldInput} />
           </div>
-          {[['이름 *','name','text','홍길동'],['이메일 *','email','email','example@email.com'],['비밀번호 * (6자 이상)','password','password',''],['비밀번호 확인 *','pw2','password',''],['부서/직책','dept','text','예: 소방안전관리']].map(([label,field,type,ph])=>(
-            <div key={field} style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11.5, color:'rgba(255,255,255,0.45)', marginBottom:5 }}>{label}</div>
-              <input type={type} placeholder={ph} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))}
-                style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.06)', border:'1.5px solid rgba(255,255,255,0.1)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'#fff', fontFamily:'inherit', outline:'none' }} />
-            </div>
-          ))}
-          {err && <div style={{ background:'rgba(239,68,68,0.15)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'10px 14px', fontSize:12.5, color:'#f87171', marginBottom:12 }}>⚠ {err}</div>}
-          <button onClick={submit} disabled={loading}
-            style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', marginBottom:12, boxShadow:'0 4px 20px rgba(99,102,241,0.4)' }}>
-            {loading?'처리 중…':'가입 신청'}
-          </button>
-          <button onClick={onBack} style={{ width:'100%', background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:12, padding:'11px', fontSize:13, color:'rgba(255,255,255,0.45)', cursor:'pointer' }}>
-            ← 로그인으로 돌아가기
+        ))}
+
+        {err && <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 13, color:'#a3361f', marginTop: 4, marginBottom: 18, paddingLeft: 12, borderLeft: `2px solid #a3361f` }}>⚠ {err}</div>}
+
+        {/* ─ Submit ─ */}
+        <button onClick={submit} disabled={loading}
+          style={{ width:'100%', boxSizing:'border-box', background: ink, border:'none', borderRadius:0, padding:'16px', fontSize: 12, fontWeight: 600, letterSpacing:'3.5px', textTransform:'uppercase', color:'#fff', cursor:loading?'wait':'pointer', marginTop: 8, marginBottom: 22, fontFamily: sans, transition:'background 0.15s' }}
+          onMouseEnter={e=>{ if(!loading) e.currentTarget.style.background='#000'; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background=ink; }}>
+          {loading?'Submitting…':'Submit · 가입 신청'}
+        </button>
+
+        {/* ─ Back link ─ */}
+        <div style={{ textAlign:'center', marginBottom: 36 }}>
+          <button onClick={onBack}
+            style={{ background:'transparent', border:'none', fontFamily: serifEN, fontStyle:'italic', fontSize: 14, color: sub, cursor:'pointer', padding: 0, textDecoration:'underline', textUnderlineOffset: 3 }}>
+            ← Back to Sign In · 로그인으로 돌아가기
           </button>
         </div>
+
+        {/* ─ Footer ─ */}
+        <div style={{ height: 1, background: hair, marginBottom: 14 }} />
+        <div style={{ fontFamily: sans, fontSize: 9.5, letterSpacing:'2.5px', textTransform:'uppercase', color: sub, textAlign:'center' }}>
+          © {new Date().getFullYear()} Tae Lim Electronics
+        </div>
+
       </div>
     </div>
   );
@@ -705,93 +768,127 @@ function LoginPage({ onLogin, onGoogleLogin }) {
     setGLoading(false);
   };
 
-  const inp={ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.07)', border:'1.5px solid rgba(255,255,255,0.12)', borderRadius:12, padding:'13px 16px', fontSize:14, color:'#fff', fontFamily:'inherit', outline:'none', transition:'border-color 0.2s, background 0.2s' };
-
   if(showReg) return <RegisterPage onBack={()=>setShowReg(false)} />;
 
-  return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Malgun Gothic','맑은 고딕',sans-serif", position:'relative', padding:'20px', boxSizing:'border-box' }}>
-      {/* 배경 사진 */}
-      <div style={{ position:'fixed', inset:0, backgroundImage:'url(/bg.jpg)', backgroundSize:'cover', backgroundPosition:'center top', zIndex:0 }} />
-      <div style={{ position:'fixed', inset:0, background:'linear-gradient(135deg,rgba(6,6,26,0.82) 0%,rgba(15,15,46,0.74) 50%,rgba(10,22,40,0.84) 100%)', zIndex:0 }} />
-      {/* 미세한 vignette */}
-      <div style={{ position:'fixed', inset:0, background:'radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.5) 100%)', zIndex:0, pointerEvents:'none' }} />
+  // ─ Museum palette (홈과 동일) ─────────────────────────
+  const paper = '#fafaf7';
+  const ink   = '#1a1a1a';
+  const sub   = '#6e6a64';
+  const hair  = '#d9d6cf';
+  const serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
 
-      {/* 카드 */}
-      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:1, background:'rgba(10,10,30,0.58)', backdropFilter:'blur(28px) saturate(140%)', WebkitBackdropFilter:'blur(28px) saturate(140%)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:24, padding:'40px 36px', boxShadow:'0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)' }}>
-        {/* 로고 + 회사명 */}
-        <div style={{ textAlign:'center', marginBottom:30 }}>
-          <div style={{ display:'flex', justifyContent:'center', marginBottom:14 }}><TLLogoHero size={64} /></div>
-          <div style={{ fontSize:21, fontWeight:900, color:'#fff', letterSpacing:'-0.3px' }}>태림전자공업㈜</div>
-          <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.45)', letterSpacing:'2px', marginTop:6, textTransform:'uppercase', fontWeight:500 }}>TAE LIM ELECTRONICS · 통합 관리 시스템</div>
+  const fieldLabel = { fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: '2.5px', textTransform: 'uppercase', color: sub, marginBottom: 8 };
+  const fieldInput = { width:'100%', boxSizing:'border-box', background:'#fff', border:`1px solid ${hair}`, borderRadius:0, padding:'13px 14px', fontSize:14, color:ink, fontFamily:sans, outline:'none', transition:'border-color 0.2s' };
+
+  return (
+    <div style={{ minHeight:'100vh', background: paper, color: ink, fontFamily: sans, padding:'clamp(40px, 6vw, 72px) clamp(20px, 5vw, 56px)', boxSizing:'border-box', display:'flex', justifyContent:'center', alignItems:'flex-start' }}>
+      <div style={{ width:'100%', maxWidth: 640 }}>
+
+        {/* ─ Kicker ─ */}
+        <div style={{ fontFamily: sans, fontSize: 10.5, fontWeight: 600, letterSpacing: '4px', textTransform: 'uppercase', color: sub, marginBottom: 20 }}>
+          Tae Lim Electronics Co., Ltd.
+        </div>
+        <div style={{ width: 44, height: 1, background: ink, marginBottom: 24 }} />
+
+        {/* ─ Title ─ */}
+        <h1 style={{ fontFamily: serifKR, fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: 1.1, color: ink, margin:'0 0 12px 0' }}>
+          태림전자공업㈜
+        </h1>
+        <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 'clamp(17px, 2vw, 21px)', color: sub, marginBottom: 'clamp(32px, 5vw, 48px)' }}>
+          Since 1985
         </div>
 
-        {/* Google 로그인 */}
+        {/* ─ Hero photo ─ */}
+        <figure style={{ margin: '0 0 clamp(48px, 7vw, 72px) 0' }}>
+          <div style={{ aspectRatio:'16 / 9', background:'#e9e6df', overflow:'hidden' }}>
+            <img src="/bg.jpg" alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', filter:'saturate(0.92)' }} />
+          </div>
+        </figure>
+
+        {/* ─ Sign In header ─ */}
+        <div style={{ height: 1, background: ink, marginBottom: 20 }} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 28 }}>
+          <div style={{ fontFamily: sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: ink }}>
+            Sign In · 로그인
+          </div>
+          <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 12, color: sub }}>
+            Members Only
+          </div>
+        </div>
+
+        {/* ─ Google ─ */}
         <button onClick={googleGo} disabled={gLoading}
-          style={{ width:'100%', background:'#fff', border:'none', borderRadius:12, padding:'13px', fontSize:14, fontWeight:600, color:'#1a1a1a', cursor:gLoading?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:10, marginBottom:14, boxShadow:'0 2px 12px rgba(0,0,0,0.25)', boxSizing:'border-box', transition:'transform 0.1s' }}
-          onMouseEnter={e=>e.currentTarget.style.transform='translateY(-1px)'}
-          onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
-          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-          {gLoading?'연결 중…':'Google 계정으로 계속'}
+          style={{ width:'100%', boxSizing:'border-box', background:'#fff', border:`1px solid ${ink}`, padding:'14px 16px', fontSize:12, fontWeight:600, letterSpacing:'2px', textTransform:'uppercase', color:ink, cursor:gLoading?'wait':'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:12, marginBottom:14, fontFamily:sans, borderRadius:0, transition:'background 0.15s' }}
+          onMouseEnter={e=>{ if(!gLoading) e.currentTarget.style.background='#f3f1ec'; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background='#fff'; }}>
+          <svg width="15" height="15" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+          {gLoading?'Connecting…':'Continue with Google'}
         </button>
 
-        {/* 구분선 */}
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18 }}>
-          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.1)' }} />
-          <span style={{ fontSize:10.5, color:'rgba(255,255,255,0.4)', letterSpacing:'1.2px', textTransform:'uppercase' }}>또는</span>
-          <div style={{ flex:1, height:1, background:'rgba(255,255,255,0.1)' }} />
+        {/* ─ Divider ─ */}
+        <div style={{ display:'flex', alignItems:'center', gap:14, margin:'22px 0' }}>
+          <div style={{ flex:1, height:1, background: hair }} />
+          <span style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 13, color: sub }}>or</span>
+          <div style={{ flex:1, height:1, background: hair }} />
         </div>
 
-        {/* 이메일 (토글) */}
+        {/* ─ Email (toggle) ─ */}
         {showEmail && (
-          <div style={{ marginBottom:12 }}>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.3px', fontWeight:500 }}>이메일</div>
+          <div style={{ marginBottom: 16 }}>
+            <div style={fieldLabel}>Email</div>
             <input type="email" placeholder="example@email.com" value={email}
-              onChange={e=>{setEmail(e.target.value);setErr('');}} onKeyDown={e=>e.key==='Enter'&&go()}
-              style={inp} />
+              onChange={e=>{setEmail(e.target.value);setErr('');}}
+              onKeyDown={e=>e.key==='Enter'&&go()}
+              onFocus={e=>e.currentTarget.style.borderColor=ink}
+              onBlur={e=>e.currentTarget.style.borderColor=hair}
+              style={fieldInput} />
           </div>
         )}
 
-        {/* 비밀번호 */}
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginBottom:6, letterSpacing:'0.3px', fontWeight:500 }}>비밀번호</div>
+        {/* ─ Password ─ */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={fieldLabel}>Password · 비밀번호</div>
           <input type="password" placeholder="비밀번호 입력" value={pw}
             onChange={e=>{setPw(e.target.value);setErr('');}}
             onKeyDown={e=>{ if(e.key==='Enter') go(); setCapsOn(e.getModifierState&&e.getModifierState('CapsLock')); }}
             onKeyUp={e=>setCapsOn(e.getModifierState&&e.getModifierState('CapsLock'))}
-            style={{ ...inp, border:`1.5px solid ${err?'rgba(239,68,68,0.55)':'rgba(255,255,255,0.12)'}`, fontSize:16 }}
+            onFocus={e=>{ if(!err) e.currentTarget.style.borderColor=ink; }}
+            onBlur={e=>{ if(!err) e.currentTarget.style.borderColor=hair; }}
+            style={{ ...fieldInput, fontSize: 15, border: `1px solid ${err?'#a3361f':hair}` }}
             autoFocus />
-          {capsOn && !err && <div style={{ fontSize:11, color:'#fbbf24', marginTop:5, fontWeight:500 }}>⇪ Caps Lock 켜져 있음</div>}
-          {err && <div style={{ fontSize:12, color:'#fca5a5', marginTop:6, fontWeight:500 }}>⚠ {err}</div>}
+          {capsOn && !err && <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 12.5, color:'#a67c2e', marginTop: 6 }}>⇪ Caps Lock 켜져 있음</div>}
+          {err && <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 12.5, color:'#a3361f', marginTop: 6 }}>⚠ {err}</div>}
         </div>
 
-        {/* 로그인 버튼 */}
+        {/* ─ Submit ─ */}
         <button onClick={go} disabled={loading}
-          style={{ width:'100%', background:'linear-gradient(135deg,#4f46e5,#6366f1)', border:'none', borderRadius:12, padding:'14px', fontSize:15, fontWeight:700, color:'#fff', cursor:loading?'wait':'pointer', boxShadow:'0 4px 20px rgba(99,102,241,0.4)', marginBottom:10, boxSizing:'border-box', transition:'transform 0.1s, box-shadow 0.2s', letterSpacing:'0.5px' }}
-          onMouseEnter={e=>{ if(!loading){ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 6px 24px rgba(99,102,241,0.5)'; } }}
-          onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 4px 20px rgba(99,102,241,0.4)'; }}>
-          {loading?'로그인 중…':'로그인'}
+          style={{ width:'100%', boxSizing:'border-box', background: ink, border:'none', borderRadius:0, padding:'16px', fontSize: 12, fontWeight: 600, letterSpacing:'3.5px', textTransform:'uppercase', color:'#fff', cursor:loading?'wait':'pointer', marginTop: 4, marginBottom: 22, fontFamily: sans, transition:'background 0.15s' }}
+          onMouseEnter={e=>{ if(!loading) e.currentTarget.style.background='#000'; }}
+          onMouseLeave={e=>{ e.currentTarget.style.background=ink; }}>
+          {loading?'Signing in…':'Sign In · 로그인'}
         </button>
 
-        {/* 보조 액션: 이메일 토글 + 회원가입 */}
-        <div style={{ display:'flex', gap:8, marginTop:6, marginBottom:4 }}>
+        {/* ─ Secondary actions ─ */}
+        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap: 18, marginBottom: 36 }}>
           <button onClick={()=>setShowEmail(!showEmail)}
-            style={{ flex:1, background:'transparent', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:'10px', fontSize:12, color:'rgba(255,255,255,0.65)', cursor:'pointer', boxSizing:'border-box', transition:'background 0.15s, border-color 0.15s', fontFamily:'inherit' }}
-            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.22)'; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(255,255,255,0.14)'; }}>
+            style={{ background:'transparent', border:'none', fontFamily: serifEN, fontStyle:'italic', fontSize: 14, color: sub, cursor:'pointer', padding: 0, textDecoration:'underline', textUnderlineOffset: 3 }}>
             {showEmail?'이메일 숨기기':'이메일 로그인'}
           </button>
+          <span style={{ color: hair }}>·</span>
           <button onClick={()=>setShowReg(true)}
-            style={{ flex:1, background:'transparent', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:'10px', fontSize:12, color:'rgba(255,255,255,0.65)', cursor:'pointer', boxSizing:'border-box', transition:'background 0.15s, border-color 0.15s', fontFamily:'inherit' }}
-            onMouseEnter={e=>{ e.currentTarget.style.background='rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.22)'; }}
-            onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(255,255,255,0.14)'; }}>
+            style={{ background:'transparent', border:'none', fontFamily: serifEN, fontStyle:'italic', fontSize: 14, color: sub, cursor:'pointer', padding: 0, textDecoration:'underline', textUnderlineOffset: 3 }}>
             회원가입
           </button>
         </div>
 
-        <div style={{ textAlign:'center', marginTop:18, fontSize:10, color:'rgba(255,255,255,0.25)', letterSpacing:'0.5px' }}>
-          © {new Date().getFullYear()} TAE LIM ELECTRONICS CO., LTD.
+        {/* ─ Footer ─ */}
+        <div style={{ height: 1, background: hair, marginBottom: 14 }} />
+        <div style={{ fontFamily: sans, fontSize: 9.5, letterSpacing:'2.5px', textTransform:'uppercase', color: sub, textAlign:'center' }}>
+          © {new Date().getFullYear()} Tae Lim Electronics
         </div>
+
       </div>
     </div>
   );
