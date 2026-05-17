@@ -2136,8 +2136,30 @@ function InvoicePage({ reading, tenants, calc }) {
     }
   };
 
+  // ─ Museum header tokens ─
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+  const _billingMonth = getBillingMonth(reading.periodEnd);
+
   return (
     <div>
+      {/* ─ Museum header ─ */}
+      <div className="no-print" style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          Invoice · 관리비 청구서
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+          {_billingMonth} 관리비 청구서
+        </h1>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Tenant billing · PDF · 일괄 발송
+        </div>
+      </div>
+
       <div className="no-print" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
         {/* 업체 선택 탭 */}
         <div style={{ display:'flex', background:C.white, borderRadius:20, border:`1px solid ${C.border}`, overflow:'hidden', boxShadow:sh.card }}>
@@ -3283,8 +3305,46 @@ function FinancePage({ role }) {
     {key:'mmf',     label:'MMF 잔액 업데이트', color:'#047857'},
   ];
 
+  // ─ Museum header tokens (페이지 진입감) ────────────────
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+  const _hair    = '#d9d6cf';
+
   return (
     <div>
+      {/* ─ Museum header ─ */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          Finance · 자금현황
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+          <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+            {monthLabel} 자금현황
+          </h1>
+          <div style={{ display:'flex', alignItems:'center', gap: 6 }}>
+            <button onClick={()=>shiftMonth(-1)} title="이전 달"
+              style={{ background:'transparent', border:`1px solid ${_hair}`, borderRadius:0, padding:'7px 12px', fontSize:13, fontFamily: _serifEN, fontStyle:'italic', color: _ink, cursor:'pointer' }}>‹</button>
+            <input type="month" value={month} onChange={e=>setMonth(e.target.value)}
+              style={{ background:'#fff', border:`1px solid ${_hair}`, borderRadius:0, padding:'7px 10px', fontSize:13, fontFamily: _sans, color: _ink, outline:'none' }} />
+            <button onClick={()=>shiftMonth(1)} title="다음 달"
+              style={{ background:'transparent', border:`1px solid ${_hair}`, borderRadius:0, padding:'7px 12px', fontSize:13, fontFamily: _serifEN, fontStyle:'italic', color: _ink, cursor:'pointer' }}>›</button>
+            {canLock && (
+              <button onClick={toggleLock} title={isLocked?'잠금 해제':'확정 잠금'}
+                style={{ background: isLocked?_ink:'transparent', border:`1px solid ${_ink}`, borderRadius:0, padding:'7px 14px', fontSize:10, fontFamily: _sans, fontWeight:600, letterSpacing:'2px', textTransform:'uppercase', color: isLocked?'#fff':_ink, cursor:'pointer', marginLeft:6 }}>
+                {isLocked?'🔓 Unlock':'🔒 Lock'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Monthly cash position · 잔고와 입출금 내역
+        </div>
+      </div>
+
       {/* 확정 잠금 상태 배너 */}
       {isLocked && (
         <div style={{ background:C.amberBg, border:`1.5px solid ${C.amberBorder}`, borderRadius:12, padding:'12px 16px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
