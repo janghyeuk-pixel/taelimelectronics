@@ -2519,12 +2519,32 @@ tr:hover{background:inherit;}
     setTimeout(()=>URL.revokeObjectURL(url2),60000);
   };
 
+  // ─ Museum header tokens ─
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+
   return (
     <div>
+      {/* ─ Museum header ─ */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          Quarterly · 분기 현황
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+          {selYear}년 분기별 검침 현황
+        </h1>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Quarterly meter readings
+        </div>
+      </div>
+
       {/* Controls */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <span style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>분기별 검침 현황</span>
           <select value={selYear} onChange={e=>setSelYear(Number(e.target.value))}
             style={{ ...baseInput, width:'auto', padding:'5px 14px', fontSize:13, fontWeight:600, color:C.navyDark, background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:20, cursor:'pointer' }}>
             {allYears.map(y=><option key={y} value={y}>{y}년</option>)}
@@ -2714,8 +2734,29 @@ function HistoryPage({ history, onLoad, onUpdate }) {
     {key:'o4',label:'4층 사무실'},
   ];
 
+  // ─ Museum header tokens ─
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+
   return (
     <div>
+      {/* ─ Museum header ─ */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          History · 히스토리
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+          검침 히스토리
+        </h1>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Past readings &amp; invoices
+        </div>
+      </div>
+
       <div style={{ fontSize:12.5, color:C.textSub, marginBottom:10 }}>
         · 행을 클릭하면 검침값 상세가 펼쳐집니다. &nbsp;· <strong>불러오기</strong>는 해당 월 데이터를 검침 입력 탭에 로드합니다.
       </div>
@@ -2911,11 +2952,30 @@ function TenantPage({ tenants, setTenants, role }) {
 
   const floorGrad=['linear-gradient(135deg,#4f46e5,#6366f1)','linear-gradient(135deg,#0284c7,#38bdf8)','linear-gradient(135deg,#7c3aed,#a78bfa)'];
 
+  // ─ Museum header tokens ─
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-        <div style={{ fontSize:15, fontWeight:700, color:C.navyDark }}>임차인 현황</div>
-        {msg && <span style={{ fontSize:12.5, color:C.green, fontWeight:600 }}>✓ {msg}</span>}
+      {/* ─ Museum header ─ */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          Tenants · 임차인
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', flexWrap:'wrap', gap: 12 }}>
+          <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+            임차인 현황
+          </h1>
+          {msg && <span style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14, color: _sub }}>✓ {msg}</span>}
+        </div>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Lease information &amp; contacts
+        </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:16, marginBottom:16 }}>
