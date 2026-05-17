@@ -11,15 +11,12 @@ import {
   query, orderBy, onSnapshot, updateDoc, where, getDocs, serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 
-const DEFAULT_PASSWORD = "taelim1staff";
-// 추가 사용자 — 이름과 권한 매핑
+const DEFAULT_PASSWORD = "test";
+// 추가 사용자 — 이메일과 권한 매핑 (모두 master, 비번 test)
 const EXTRA_USERS_DEFAULTS = [
-  { id:'father', name:'아버지',     formal:'박형준', role:'admin', pw:'taelimmotor'    }, // 박형준 대표이사
-  { id:'uncle',  name:'작은아버지',  formal:'박호준', role:'admin', pw:'taelimmotor-1'  }, // 박호준 이사
-  { id:'staff1', name:'직원1',      formal:'직원1',  role:'staff', pw:'taelim1staff'   },
-  { id:'staff2', name:'직원2',      formal:'직원2',  role:'staff', pw:'taelim2staff'   },
-  { id:'guest1', name:'Guest1',    formal:'Guest1', role:'guest', pw:'taelimguest1'   },
-  { id:'guest2', name:'Guest2',    formal:'Guest2', role:'guest', pw:'taelimguest2'   },
+  { id:'ceo',       name:'CEO',       formal:'박형준',  role:'master', pw:'test', email:'ceo@taelim.co'       },
+  { id:'taelim',    name:'태림',      formal:'태림전자', role:'master', pw:'test', email:'taelim@taelim.co'    },
+  { id:'janghyeuk', name:'장혁',      formal:'장혁',    role:'master', pw:'test', email:'janghyeuk@taelim.co' },
 ];
 function getExtraUsers(){
   const overrides=(typeof localStorage!=='undefined')?(JSON.parse(localStorage.getItem('tl_user_pw_overrides')||'null')||{}):{};
@@ -42,7 +39,7 @@ const INITIAL_TENANTS = [
   { id:'yuyeon',  name:'유연어패럴',  fullName:'유연어패럴',            floor:'3층', suffix:'03', rent:4125000, mgmtArea:200, elevator:44353,  deposit:35000000, area:481.3,  contractStart:'', contractEnd:'', email:'janghyeuk@nate.com' },
 ];
 // 청구서 발송 시 본인이 사본 받을 BCC 주소
-const INVOICE_BCC = 'taelimmotor@outlook.com';
+const INVOICE_BCC = 'ceo@taelim.co';
 
 const INITIAL_ACCOUNTS = {
   acct018: { label:'보통018', prev:0, curr:0 },
@@ -2159,6 +2156,35 @@ function InvoicePage({ reading, tenants, calc }) {
     }
   };
 
+  // ─ 테스트 발송: BCC 주소로만 1통 보내서 수신 여부 확인 ─
+  const sendTestInvoice=async()=>{
+    const t=tenants[active]||tenants[0];
+    if(!t){ alert('임차인 데이터가 없습니다.'); return; }
+    const billingMonth=getBillingMonth(reading.periodEnd);
+    if(!window.confirm(`테스트 발송\n\n수신: ${INVOICE_BCC}\n내용: ${t.name} ${billingMonth} 청구서 (실제 임차인에게는 가지 않음)\n\n보낼까요?`)) return;
+    setSending(true);
+    try {
+      const res=await fetch('/api/send-invoice',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          messages:[{
+            to: INVOICE_BCC,
+            subject:`[테스트] [${CO_NAME}] ${billingMonth} 관리비 청구서 (${t.name})`,
+            html: buildInvoiceEmailHtml(t,reading,calc),
+          }],
+          fromName: CO_NAME,
+        }),
+      });
+      const data=await res.json();
+      if(data.ok) alert(`✓ 테스트 발송 완료\n\n→ ${INVOICE_BCC}\n메일함을 확인해 주세요.`);
+      else alert(`⚠ 발송 실패\n\n${data.error||'상세 정보 없음'}\n\nVercel 환경변수(GMAIL_USER, GMAIL_APP_PASSWORD) 확인 필요.`);
+    } catch(e){
+      alert(`⚠ 발송 요청 실패: ${e.message}\n\n환경변수(GMAIL_USER, GMAIL_APP_PASSWORD)가 Vercel에 설정되어 있는지 확인해주세요.`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   // ─ Museum header tokens ─
   const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
   const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
@@ -2208,6 +2234,11 @@ function InvoicePage({ reading, tenants, calc }) {
             title="홈택스 일괄발행용 엑셀 (전 임차인 임대료+관리비 자동)"
             style={{ background:'#fff', color: _ink, border:`1px solid ${_hair}`, padding:'10px 16px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor:'pointer' }}>
             Tax XLS · 세금계산서
+          </button>
+          <button onClick={sendTestInvoice} disabled={sending}
+            title={`${INVOICE_BCC} 한 곳으로만 테스트 1통 발송 (실제 임차인에게는 안 감)`}
+            style={{ background:'#fff', color:'#a3361f', border:`1px solid #a3361f`, padding:'10px 16px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor: sending?'wait':'pointer' }}>
+            {sending?'…':'Test · 테스트 1통'}
           </button>
           <button onClick={sendInvoiceEmails} disabled={sending}
             title={`임차인 ${tenants.filter(t=>t.email).length}곳에 청구서 이메일 일괄 발송 (BCC: ${INVOICE_BCC})`}
