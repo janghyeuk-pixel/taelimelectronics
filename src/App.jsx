@@ -157,15 +157,15 @@ async function analyzeInvoiceImage(base64, type) {
 
   const mediaType = 'image/jpeg';
 
-  const elecPrompt = `이 이미지는 한국전력공사(KEPCO) 전기 고지서입니다. 다음 항목의 금액을 찾아 JSON으로 반환해주세요. 숫자만 포함(쉼표 없이):
+  const elecPrompt = `이 이미지는 한국전력공사(KEPCO) 전기 고지서입니다. 다음 항목의 금액을 찾아 JSON으로 반환해주세요. 숫자만 포함(쉼표 없이, 음수면 - 부호 그대로):
 {
   "basicFee": 기본요금(원),
-  "powerFund": 전력산업기반기금(원),
-  "totalAmount": 당월 청구금액 또는 전기요금 합계(VAT 포함 총액)(원),
+  "powerFund": 전력기금 또는 전력산업기반기금(원),
+  "totalAmount": "청구금액"의 값(원). 청구금액은 보통 (당월요금계 + TV수신료)이며 빨간 글씨로 강조되어 있음. 청구서 가장 아래에 있는 최종 청구금액을 그대로 사용할 것. 당월요금계가 아니라 청구금액!
   "vat": 부가가치세(원),
-  "safetyFee": 전기안전관리비 또는 전기안전대행료(원, 없으면 0)
+  "safetyFee": 전기안전관리비 또는 전기안전대행료(원). 한전 고지서에 이 항목이 없으면 0. TV수신료는 safetyFee가 아님(safetyFee=0).
 }
-항목을 찾지 못하면 0. JSON 코드블록만 반환.`;
+숫자가 명확하지 않거나 찾지 못한 항목은 0. JSON 코드블록만 반환.`;
 
   const waterPrompt = `이 이미지는 수도 고지서입니다. 다음 항목을 찾아 JSON으로 반환해주세요. 숫자만 포함(쉼표 없이):
 {
@@ -182,7 +182,7 @@ async function analyzeInvoiceImage(base64, type) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-opus-4-7',
       max_tokens: 512,
       messages: [{
         role: 'user',
