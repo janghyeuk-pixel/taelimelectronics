@@ -1597,8 +1597,31 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
   ];
   const waterRows=[{key:'w1',label:'1층 웨지우드'},{key:'t2',label:'2층 태하무역'},{key:'y3',label:'3층 유연어패럴'},{key:'o4',label:'4층 사무실'}];
   const FL=({text})=><div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>{text}</div>;
+
+  // ─ Museum header tokens ─
+  const _serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const _serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+  const _ink     = '#1a1a1a';
+  const _sub     = '#6e6a64';
+  const _billingMonthHdr = getBillingMonth(reading.periodEnd);
+
   return (
     <div>
+      {/* ─ Museum header ─ */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: _sans, fontSize: 10, fontWeight: 600, letterSpacing: '3.5px', textTransform: 'uppercase', color: _sub, marginBottom: 14 }}>
+          Meter Reading · 검침 입력
+        </div>
+        <div style={{ width: 36, height: 1, background: _ink, marginBottom: 18 }} />
+        <h1 style={{ fontFamily: _serifKR, fontSize: 'clamp(26px, 3.4vw, 38px)', fontWeight: 500, letterSpacing: '-1px', lineHeight: 1.15, color: _ink, margin: 0 }}>
+          {_billingMonthHdr} 검침 입력
+        </h1>
+        <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 14.5, color: _sub, marginTop: 8 }}>
+          Electricity · Water · 공과금 자동 인식
+        </div>
+      </div>
+
       <div style={CARD}>
         <SecHead icon="📅" title="적용 기간 및 청구 번호" />
         <div style={{ display:'flex', gap:12, flexWrap:'wrap', alignItems:'flex-end' }}>
@@ -2160,27 +2183,36 @@ function InvoicePage({ reading, tenants, calc }) {
         </div>
       </div>
 
-      <div className="no-print" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
-        {/* 업체 선택 탭 */}
-        <div style={{ display:'flex', background:C.white, borderRadius:20, border:`1px solid ${C.border}`, overflow:'hidden', boxShadow:sh.card }}>
+      <div className="no-print" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 22, flexWrap:'wrap', gap: 14 }}>
+        {/* ─ Tenant tabs (hairline) ─ */}
+        <div style={{ display:'flex', borderTop:`1px solid ${_hair}`, borderBottom:`1px solid ${_hair}` }}>
           {tenants.map((t,i)=>(
             <button key={t.id} onClick={()=>setActive(i)}
-              style={{ ...btn(active===i?'active':'inactive'), borderRadius:0, height:36, borderRight:i<2?`1px solid ${C.border}`:'none' }}>
-              {t.floor} {t.name}
+              style={{ background: active===i?_ink:'#fff', color: active===i?'#fff':_ink, border:'none', borderLeft: i>0?`1px solid ${_hair}`:'none', padding:'10px 18px', fontSize: 11, fontFamily: _sans, fontWeight: 600, letterSpacing:'2px', textTransform:'uppercase', cursor:'pointer', transition:'background 0.15s' }}>
+              <span style={{ fontFamily: _serifEN, fontStyle:'italic', textTransform:'none', letterSpacing:'normal', fontSize: 12.5, opacity: 0.85, marginRight: 6 }}>{t.floor}</span>
+              {t.name}
             </button>
           ))}
         </div>
-        {/* PDF 출력 + 세금계산서 자료 + 이메일 발송 */}
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          <button onClick={()=>printRef.current?.(false)} style={btn('primary')}>🎨 컬러 PDF 출력</button>
-          <button onClick={()=>printRef.current?.(true)}  style={btn('secondary')}>⬜ 흑백 PDF 출력</button>
+        {/* ─ Actions ─ */}
+        <div style={{ display:'flex', gap: 8, flexWrap:'wrap' }}>
+          <button onClick={()=>printRef.current?.(false)}
+            style={{ background: _ink, color:'#fff', border:'none', padding:'10px 16px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor:'pointer' }}>
+            Print · 컬러
+          </button>
+          <button onClick={()=>printRef.current?.(true)}
+            style={{ background:'#fff', color: _ink, border:`1px solid ${_ink}`, padding:'10px 16px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor:'pointer' }}>
+            Print · 흑백
+          </button>
           <button onClick={()=>exportTaxInvoice(reading,tenants,calc)}
-            style={{...btn('secondary'),background:'#10B981',color:'#fff'}}
-            title="홈택스 일괄발행용 엑셀 (전 임차인 임대료+관리비 자동)">📋 전자세금계산서 자료</button>
+            title="홈택스 일괄발행용 엑셀 (전 임차인 임대료+관리비 자동)"
+            style={{ background:'#fff', color: _ink, border:`1px solid ${_hair}`, padding:'10px 16px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor:'pointer' }}>
+            Tax XLS · 세금계산서
+          </button>
           <button onClick={sendInvoiceEmails} disabled={sending}
-            style={{...btn('secondary'),background:sending?'#94a3b8':'#3730a3',color:'#fff',cursor:sending?'wait':'pointer'}}
-            title={`임차인 ${tenants.filter(t=>t.email).length}곳에 청구서 이메일 일괄 발송 (BCC: ${INVOICE_BCC})`}>
-            {sending?'📤 발송 중…':`📧 청구서 일괄 발송 (${tenants.filter(t=>t.email).length})`}
+            title={`임차인 ${tenants.filter(t=>t.email).length}곳에 청구서 이메일 일괄 발송 (BCC: ${INVOICE_BCC})`}
+            style={{ background: sending?_sub:_ink, color:'#fff', border:'none', padding:'10px 18px', fontSize: 10.5, fontFamily: _sans, fontWeight: 600, letterSpacing:'2.5px', textTransform:'uppercase', cursor: sending?'wait':'pointer' }}>
+            {sending?'Sending…':`Send · 발송 (${tenants.filter(t=>t.email).length})`}
           </button>
         </div>
       </div>
@@ -3359,19 +3391,22 @@ function FinancePage({ role }) {
         </div>
       )}
 
-      {/* 월간 요약 카드 */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:12, marginBottom:14 }}>
+      {/* ─ Museum summary cards ─ */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:0, marginBottom:24, border:`1px solid ${_hair}`, background:'#fff' }}>
         {[
-          {icon:'💼', label:'총 잔고 (현재)',     value:`${fmt(totalCurr)}원`,         color:C.navyDark, bg:C.navyBg, border:C.navyBg2,           sub:`전월 대비 ${(totalCurr-totalPrev)>=0?'+':''}${fmt(totalCurr-totalPrev)}원`},
-          {icon:'📥', label:`${monthLabel} 입금`,  value:`${fmt(totalIncome)}원`,       color:C.blue,     bg:C.blueBg, border:C.blueBorder,         sub:`${(ymData.rows||[]).filter(r=>r.income).length}건`},
-          {icon:'📤', label:`${monthLabel} 출금`,  value:`${fmt(totalExpense)}원`,      color:C.red,      bg:C.redBg,  border:C.redBorder,          sub:`${(ymData.rows||[]).filter(r=>r.expense).length}건`},
-          {icon:'📊', label:'예상 잔고 (자동계산)', value:`${fmt(totalExpectedCurr)}원`, color:hasMismatch?C.amber:C.green, bg:hasMismatch?C.amberBg:C.greenBg, border:hasMismatch?C.amberBorder:C.greenBorder, sub:hasMismatch?`수기와 ${fmt(totalCurr-totalExpectedCurr)} 차이`:'잔고와 일치'},
-        ].map(({icon,label,value,color,bg,border,sub})=>(
-          <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:14, padding:'16px 14px' }}>
-            <div style={{ fontSize:18, marginBottom:6 }}>{icon}</div>
-            <div style={{ fontSize:11, color:C.textSub, marginBottom:4 }}>{label}</div>
-            <div style={{ fontSize:15, fontWeight:800, color, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px', marginBottom:3 }}>{value}</div>
-            <div style={{ fontSize:10.5, color:C.textHint }}>{sub}</div>
+          {kicker:'Total Balance', label:'총 잔고',        value: totalCurr,          accent:_ink,      sub:`전월 대비 ${(totalCurr-totalPrev)>=0?'+':'−'}${fmt(Math.abs(totalCurr-totalPrev))}원`},
+          {kicker:'Inflow',        label:`${monthLabel} 입금`, value: totalIncome,    accent:'#1e3a8a', sub:`${(ymData.rows||[]).filter(r=>r.income).length}건`},
+          {kicker:'Outflow',       label:`${monthLabel} 출금`, value: totalExpense,   accent:'#7c2d12', sub:`${(ymData.rows||[]).filter(r=>r.expense).length}건`},
+          {kicker:'Projected',     label:'예상 잔고',      value: totalExpectedCurr,  accent: hasMismatch?'#a67c2e':_ink, sub: hasMismatch?`수기와 ${fmt(Math.abs(totalCurr-totalExpectedCurr))}원 차이`:'잔고와 일치'},
+        ].map(({kicker,label,value,accent,sub},i)=>(
+          <div key={label} style={{ padding:'22px 22px 20px', borderRight: i<3?`1px solid ${_hair}`:'none', borderTop:`1px solid transparent` }}>
+            <div style={{ fontFamily: _sans, fontSize: 9.5, fontWeight: 600, letterSpacing: '2.5px', textTransform: 'uppercase', color: _sub, marginBottom: 6 }}>{kicker}</div>
+            <div style={{ fontFamily: _serifEN, fontStyle:'italic', fontSize: 12.5, color: _sub, marginBottom: 14 }}>{label}</div>
+            <div style={{ fontFamily: _serifEN, fontSize: 'clamp(26px, 2.4vw, 32px)', fontWeight: 500, color: accent, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.5px', lineHeight: 1, marginBottom: 8 }}>
+              {fmt(value)}<span style={{ fontFamily: _sans, fontSize: 11, fontWeight:600, letterSpacing:'1.5px', color:_sub, marginLeft: 6 }}>KRW</span>
+            </div>
+            <div style={{ width: 22, height: 1, background: _hair, margin:'10px 0 8px' }} />
+            <div style={{ fontFamily: _sans, fontSize: 11, color: _sub, lineHeight: 1.5 }}>{sub}</div>
           </div>
         ))}
       </div>
