@@ -850,128 +850,258 @@ function Header({ page, setPage, onLogout, role, pendingCount, userName }) {
 
 // ─── Home Page (환영 + 환율 + 뉴스 + 최근 공지·사진) ─────────
 function HomePage({ role, setPage }) {
+  const [heroV,setHeroV] = useState(0);
   const photos = store.get('tl_gallery_photos')||[];
   const notices = store.get('tl_home_notices')||[];
+  const customHero = store.get('tl_home_hero');
+  const heroPhoto = customHero || photos[0]?.src || '/bg.jpg';
+  const canEdit = role==='master' || role==='admin';
+  const fileRef = useRef(null);
   const fmtDate = (iso)=>{ const d=new Date(iso); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`; };
 
   const [rates,setRates] = useState(null);
   const [ratesDate,setRatesDate] = useState('');
   const [ratesErr,setRatesErr] = useState(false);
   useEffect(()=>{
-    // frankfurter.dev — 무료, 키 불필요, ECB 데이터. KRW 기준으로 받아서 역수.
     fetch('https://api.frankfurter.dev/v1/latest?base=KRW&symbols=USD,EUR,JPY,CNY')
       .then(r=>r.json())
       .then(d=>{
         const inv={};
         Object.entries(d.rates||{}).forEach(([k,v])=>{ inv[k]=v>0?1/v:0; });
-        // JPY는 통상 100엔당 표시
         if(inv.JPY) inv.JPY100 = inv.JPY*100;
         setRates(inv); setRatesDate(d.date||'');
       })
       .catch(()=>setRatesErr(true));
   },[]);
 
-  const fmtRate=(v)=>v?Math.round(v).toLocaleString('ko-KR'):'-';
+  const fmtRate=(v)=>v?Math.round(v).toLocaleString('ko-KR'):'—';
   const CCY=[
-    { code:'USD', label:'미국 (1 USD)', icon:'🇺🇸', val:rates?.USD },
-    { code:'EUR', label:'유럽 (1 EUR)', icon:'🇪🇺', val:rates?.EUR },
-    { code:'JPY', label:'일본 (100 JPY)', icon:'🇯🇵', val:rates?.JPY100 },
-    { code:'CNY', label:'중국 (1 CNY)', icon:'🇨🇳', val:rates?.CNY },
+    { code:'USD', sub:'미국 1$',     val:rates?.USD    },
+    { code:'EUR', sub:'유럽 1€',     val:rates?.EUR    },
+    { code:'JPY', sub:'일본 100¥',   val:rates?.JPY100 },
+    { code:'CNY', sub:'중국 1¥',     val:rates?.CNY    },
   ];
 
-  const NEWS_SITES=[
-    { name:'네이버 뉴스', url:'https://news.naver.com', icon:'📰', color:'#03c75a', bg:'#e6f7ec' },
-    { name:'다음 뉴스', url:'https://news.daum.net', icon:'📺', color:'#0086d4', bg:'#e0f2fe' },
-    { name:'연합뉴스', url:'https://www.yna.co.kr', icon:'🌐', color:'#003876', bg:'#dbeafe' },
-    { name:'YTN', url:'https://www.ytn.co.kr', icon:'📡', color:'#e60012', bg:'#fee2e2' },
-    { name:'조선일보', url:'https://www.chosun.com', icon:'📃', color:'#1a1a1a', bg:'#f3f4f6' },
-    { name:'중앙일보', url:'https://www.joongang.co.kr', icon:'📄', color:'#cf2027', bg:'#fee2e2' },
-    { name:'한겨레', url:'https://www.hani.co.kr', icon:'📓', color:'#00aaff', bg:'#e0f2fe' },
-    { name:'BBC News', url:'https://www.bbc.com/news', icon:'🌍', color:'#bb1919', bg:'#fee2e2' },
+  const NEWS=[
+    ['네이버',   'https://news.naver.com'],
+    ['다음',     'https://news.daum.net'],
+    ['연합뉴스', 'https://www.yna.co.kr'],
+    ['YTN',      'https://www.ytn.co.kr'],
+    ['조선일보', 'https://www.chosun.com'],
+    ['중앙일보', 'https://www.joongang.co.kr'],
+    ['한겨레',   'https://www.hani.co.kr'],
+    ['BBC',      'https://www.bbc.com/news'],
   ];
+
+  const handleHero = async (e) => {
+    const file = e.target.files?.[0];
+    if(fileRef.current) fileRef.current.value='';
+    if(!file || !file.type.startsWith('image/')) return;
+    const dataUrl = await compressImage(file, 1800, 0.85);
+    if(dataUrl){ store.set('tl_home_hero', dataUrl); setHeroV(v=>v+1); }
+    else alert('이미지를 불러올 수 없습니다.');
+  };
+  const resetHero = () => {
+    if(!window.confirm('홈 메인 사진을 기본 사진으로 되돌릴까요?')) return;
+    try{ localStorage.removeItem('tl_home_hero'); }catch{}
+    setHeroV(v=>v+1);
+  };
+
+  // ─ Museum palette ─────────────────────────────────────
+  const paper = '#fafaf7';
+  const ink   = '#1a1a1a';
+  const sub   = '#6e6a64';
+  const hair  = '#d9d6cf';
+  const serifKR = "'Noto Serif KR', 'Nanum Myeongjo', serif";
+  const serifEN = "'Cormorant Garamond', 'Times New Roman', serif";
+  const sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
+
+  const kicker = {
+    fontFamily: sans, fontSize: 10.5, fontWeight: 600,
+    letterSpacing: '4px', textTransform: 'uppercase', color: sub,
+  };
+  const sectionLabel = {
+    fontFamily: sans, fontSize: 10, fontWeight: 600,
+    letterSpacing: '3.5px', textTransform: 'uppercase', color: ink,
+  };
+  const sectionMeta = {
+    fontFamily: serifEN, fontStyle: 'italic', fontSize: 12, color: sub,
+  };
+  const ghostBtn = {
+    background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)',
+    border: `1px solid ${hair}`, fontFamily: sans,
+    fontSize: 10.5, fontWeight: 600, letterSpacing: '1.5px',
+    color: ink, padding: '7px 14px', cursor: 'pointer',
+    textTransform: 'uppercase',
+  };
 
   return (
-    <div>
-      <div style={{ background:`linear-gradient(135deg,${C.navyDark},#1e1b4b)`, color:'#fff', borderRadius:18, padding:'36px 32px', marginBottom:18, boxShadow:sh.card, position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', right:-40, top:-40, width:220, height:220, background:'radial-gradient(circle, rgba(99,102,241,0.4), transparent 70%)', borderRadius:'50%' }} />
-        <div style={{ position:'absolute', left:-30, bottom:-30, width:160, height:160, background:'radial-gradient(circle, rgba(167,139,250,0.25), transparent 70%)', borderRadius:'50%' }} />
-        <div style={{ position:'relative', zIndex:1 }}>
-          <div style={{ fontSize:11, letterSpacing:'3px', opacity:0.55, marginBottom:10 }}>TAE LIM ELECTRONICS CO., LTD.</div>
-          <div style={{ fontSize:28, fontWeight:900, letterSpacing:'-0.5px', marginBottom:8 }}>태림전자공업㈜</div>
-          <div style={{ fontSize:13, opacity:0.7, lineHeight:1.8 }}>{CO_ADDR}<br/>Tel {CO_TEL} · Fax {CO_FAX}</div>
-        </div>
-      </div>
+    <div style={{
+      background: paper, color: ink, fontFamily: sans,
+      padding: 'clamp(48px, 7vw, 88px) clamp(24px, 5vw, 64px) clamp(64px, 8vw, 96px)',
+      marginBottom: -8,
+    }}>
 
-      {/* 환율 */}
-      <div style={CARD}>
-        <SecHead icon="💱" title="오늘의 환율 (KRW 기준)" action={
-          <span style={{ fontSize:11, color:C.textHint }}>
-            {ratesErr?'⚠ 환율 데이터를 가져오지 못했습니다':ratesDate?`기준일 ${ratesDate} · ECB`:'불러오는 중…'}
-          </span>
-        } />
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:10 }}>
-          {CCY.map(c=>(
-            <div key={c.code} style={{ background:C.navyBg, border:`1px solid ${C.navyBg2}`, borderRadius:12, padding:'14px 16px' }}>
-              <div style={{ fontSize:11.5, color:C.textSub, marginBottom:4, display:'flex', alignItems:'center', gap:6 }}>
-                <span style={{ fontSize:14 }}>{c.icon}</span>{c.label}
+      {/* ─ HERO ─────────────────────────────────────────── */}
+      <header style={{ marginBottom: 'clamp(56px, 8vw, 88px)' }}>
+        <div style={{ ...kicker, marginBottom: 22 }}>Tae Lim Electronics Co., Ltd.</div>
+        <div style={{ width: 44, height: 1, background: ink, marginBottom: 26 }} />
+        <h1 style={{
+          fontFamily: serifKR, fontSize: 'clamp(36px, 5.5vw, 56px)',
+          fontWeight: 500, letterSpacing: '-1.5px', lineHeight: 1.1,
+          color: ink, margin: '0 0 14px 0',
+        }}>
+          태림전자공업㈜
+        </h1>
+        <div style={{
+          fontFamily: serifEN, fontStyle: 'italic',
+          fontSize: 'clamp(18px, 2.2vw, 22px)', color: sub,
+          margin: '0 0 clamp(40px, 5vw, 56px) 0', fontWeight: 400,
+        }}>
+          Since 1985
+        </div>
+
+        <figure style={{ margin: 0, position: 'relative' }}>
+          <div style={{
+            aspectRatio: '16 / 9', background: '#e9e6df',
+            overflow: 'hidden', position: 'relative',
+          }}>
+            <img key={heroV} src={heroPhoto} alt=""
+              style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', filter:'saturate(0.92)' }} />
+            {canEdit && (
+              <div style={{ position:'absolute', top:14, right:14, display:'flex', gap:8 }}>
+                <label style={{ ...ghostBtn, display:'inline-flex', alignItems:'center' }}>
+                  사진 변경
+                  <input ref={fileRef} type="file" accept="image/*" hidden onChange={handleHero} />
+                </label>
+                {customHero && (
+                  <button onClick={resetHero} style={ghostBtn}>기본</button>
+                )}
               </div>
-              <div style={{ fontSize:20, fontWeight:800, color:C.navyDark, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px' }}>
-                {fmtRate(c.val)} <span style={{ fontSize:12, color:C.textMid, fontWeight:600 }}>원</span>
+            )}
+          </div>
+          <figcaption style={{
+            ...sectionMeta, marginTop: 16, lineHeight: 1.7,
+            display:'flex', flexWrap:'wrap', gap:'4px 14px',
+          }}>
+            <span>{CO_ADDR}</span>
+            <span style={{ color: hair }}>·</span>
+            <span>T. {CO_TEL}</span>
+            <span style={{ color: hair }}>·</span>
+            <span>F. {CO_FAX}</span>
+          </figcaption>
+        </figure>
+      </header>
+
+      {/* ─ EXCHANGE ─────────────────────────────────────── */}
+      <section style={{ marginBottom: 'clamp(56px, 7vw, 80px)' }}>
+        <div style={{ height: 1, background: ink, marginBottom: 22 }} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 26 }}>
+          <div style={sectionLabel}>Exchange · KRW</div>
+          <div style={sectionMeta}>
+            {ratesErr ? '데이터를 불러올 수 없습니다' : ratesDate ? `Based ${ratesDate}  ·  ECB` : '…'}
+          </div>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap: 0 }}>
+          {CCY.map((c,i)=>(
+            <div key={c.code} style={{
+              padding:'8px clamp(8px, 1.5vw, 20px) 4px',
+              borderLeft: i>0 ? `1px solid ${hair}` : 'none',
+              textAlign:'center',
+            }}>
+              <div style={{ fontFamily: serifEN, fontSize: 13, color: sub, letterSpacing:'2px', marginBottom: 10 }}>{c.code}</div>
+              <div style={{ fontFamily: serifKR, fontSize: 'clamp(22px, 3vw, 30px)', color: ink, fontWeight: 500, fontVariantNumeric:'tabular-nums', letterSpacing:'-0.3px', lineHeight:1 }}>
+                {fmtRate(c.val)}
               </div>
+              <div style={{ fontFamily: serifEN, fontStyle:'italic', fontSize: 11, color: sub, marginTop: 10 }}>{c.sub}</div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* 주요 뉴스 */}
-      <div style={CARD}>
-        <SecHead icon="🗞️" title="주요 뉴스" action={<span style={{ fontSize:11, color:C.textHint }}>새 탭에서 열림</span>} />
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:10 }}>
-          {NEWS_SITES.map(n=>(
-            <a key={n.name} href={n.url} target="_blank" rel="noopener noreferrer"
-              style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 14px', background:n.bg, border:`1px solid ${n.color}22`, borderRadius:10, textDecoration:'none', transition:'transform 0.15s, box-shadow 0.15s' }}
-              onMouseEnter={e=>{ e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}>
-              <span style={{ fontSize:20 }}>{n.icon}</span>
-              <span style={{ fontSize:13, fontWeight:700, color:n.color }}>{n.name}</span>
+      {/* ─ NOTICE + GALLERY ─────────────────────────────── */}
+      <section style={{
+        display:'grid',
+        gridTemplateColumns:'minmax(0, 1.15fr) minmax(0, 1fr)',
+        gap: 'clamp(32px, 5vw, 64px)',
+        marginBottom: 'clamp(56px, 7vw, 80px)',
+      }}>
+        <div onClick={()=>setPage('board')} style={{ cursor:'pointer' }}
+          onMouseEnter={e=>{ e.currentTarget.querySelector('[data-arrow]').style.transform='translateX(4px)'; }}
+          onMouseLeave={e=>{ e.currentTarget.querySelector('[data-arrow]').style.transform='translateX(0)'; }}>
+          <div style={{ height: 1, background: ink, marginBottom: 22 }} />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 22 }}>
+            <div style={sectionLabel}>Notice</div>
+            <div data-arrow style={{ ...sectionMeta, transition:'transform 0.2s' }}>View all →</div>
+          </div>
+          {notices.length===0 ? (
+            <div style={{ ...sectionMeta, padding:'8px 0' }}>등록된 공지사항이 없습니다.</div>
+          ) : (
+            <div>
+              {notices.slice(0,4).map((n,i,arr)=>(
+                <div key={n.id} style={{
+                  display:'flex', justifyContent:'space-between', alignItems:'baseline',
+                  padding:'14px 0',
+                  borderBottom: i < arr.length-1 ? `1px solid ${hair}` : 'none',
+                }}>
+                  <span style={{ fontFamily: serifKR, fontSize: 15, color: ink, fontWeight: 500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {n.title||'(제목 없음)'}
+                  </span>
+                  <span style={{ ...sectionMeta, fontSize: 11, whiteSpace:'nowrap', marginLeft: 14 }}>
+                    {fmtDate(n.createdAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div onClick={()=>setPage('gallery')} style={{ cursor:'pointer' }}
+          onMouseEnter={e=>{ e.currentTarget.querySelector('[data-arrow]').style.transform='translateX(4px)'; }}
+          onMouseLeave={e=>{ e.currentTarget.querySelector('[data-arrow]').style.transform='translateX(0)'; }}>
+          <div style={{ height: 1, background: ink, marginBottom: 22 }} />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 22 }}>
+            <div style={sectionLabel}>Gallery</div>
+            <div data-arrow style={{ ...sectionMeta, transition:'transform 0.2s' }}>View all →</div>
+          </div>
+          {photos.length===0 ? (
+            <div style={{ ...sectionMeta, padding:'8px 0' }}>등록된 사진이 없습니다.</div>
+          ) : (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap: 6 }}>
+              {photos.slice(0,4).map(p=>(
+                <div key={p.id} style={{ aspectRatio:'1/1', overflow:'hidden', background:'#e9e6df' }}>
+                  <img src={p.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block', filter:'saturate(0.92)' }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ─ NEWS ─────────────────────────────────────────── */}
+      <section>
+        <div style={{ height: 1, background: ink, marginBottom: 22 }} />
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom: 22 }}>
+          <div style={sectionLabel}>News</div>
+          <div style={sectionMeta}>opens in new tab</div>
+        </div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:'14px 28px' }}>
+          {NEWS.map(n=>(
+            <a key={n[0]} href={n[1]} target="_blank" rel="noopener noreferrer"
+              style={{
+                fontFamily: serifKR, fontSize: 14, fontWeight: 500,
+                color: ink, textDecoration:'none', paddingBottom: 2,
+                borderBottom: `1px solid ${hair}`,
+                transition: 'border-color 0.2s, color 0.2s',
+              }}
+              onMouseEnter={e=>{ e.currentTarget.style.borderColor = ink; }}
+              onMouseLeave={e=>{ e.currentTarget.style.borderColor = hair; }}>
+              {n[0]}
             </a>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* 게시판 + 갤러리 미리보기 */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-        <div style={{ ...CARD, marginBottom:0, cursor:'pointer' }} onClick={()=>setPage('board')}>
-          <SecHead icon="📢" title="게시판" action={<span style={{ fontSize:11, color:C.textHint }}>전체 보기 →</span>} />
-          {notices.length===0 ? (
-            <div style={{ fontSize:12, color:C.textHint, padding:'14px 0' }}>등록된 공지사항이 없습니다.</div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {notices.slice(0,3).map(n=>(
-                <div key={n.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, padding:'6px 0', borderBottom:`1px dashed ${C.border}` }}>
-                  <span style={{ fontSize:12.5, color:C.navy, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.title||'(제목 없음)'}</span>
-                  <span style={{ fontSize:11, color:C.textHint, flexShrink:0 }}>{fmtDate(n.createdAt)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ ...CARD, marginBottom:0, cursor:'pointer' }} onClick={()=>setPage('gallery')}>
-          <SecHead icon="📷" title="갤러리" action={<span style={{ fontSize:11, color:C.textHint }}>전체 보기 →</span>} />
-          {photos.length===0 ? (
-            <div style={{ fontSize:12, color:C.textHint, padding:'14px 0' }}>등록된 사진이 없습니다.</div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:6 }}>
-              {photos.slice(0,3).map(p=>(
-                <div key={p.id} style={{ aspectRatio:'1/1', borderRadius:6, overflow:'hidden', background:'#f1f5f9' }}>
-                  <img src={p.src} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1290,6 +1420,23 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
   const fileRef=useRef(null);
   const pendingTypeRef=useRef(null);
 
+  // ── 월별 공과금 고지서 보관함 ──
+  const [billDocs,setBillDocs]=useState(()=>store.get('tl_bill_docs')||{});
+  const [docMonth,setDocMonth]=useState(()=>{ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; });
+  const [docType,setDocType]=useState('elec');
+  const docFileRef=useRef(null);
+  const handleDocUpload=async(e)=>{
+    const file=e.target.files?.[0]; if(!file) return;
+    const dataUrl=await compressImage(file); if(!dataUrl) return;
+    const next={...billDocs,[docMonth]:{...(billDocs[docMonth]||{}),[docType]:dataUrl}};
+    setBillDocs(next); store.set('tl_bill_docs',next);
+    if(docFileRef.current) docFileRef.current.value='';
+  };
+  const removeDoc=(month,type)=>{
+    const next={...billDocs,[month]:{...(billDocs[month]||{}),[type]:null}};
+    setBillDocs(next); store.set('tl_bill_docs',next);
+  };
+
   const up=(path,val)=>{
     const keys=path.split('.');
     const next=JSON.parse(JSON.stringify(reading));
@@ -1493,6 +1640,63 @@ function InputPage({ reading, onChange, onSave, saveMsg }) {
           <button onClick={()=>setImgModal(null)} style={{ position:'fixed', top:18, right:22, background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', color:'#fff', borderRadius:'50%', width:36, height:36, fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
         </div>
       )}
+
+      {/* ── 월별 공과금 고지서 보관함 ── */}
+      <div style={CARD}>
+        <SecHead icon="🗄️" title="월별 공과금 고지서 보관함 (전기·수도)" />
+        <input ref={docFileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleDocUpload} />
+
+        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+          <div>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>월 선택</div>
+            <input type="month" value={docMonth} onChange={e=>setDocMonth(e.target.value)} style={{ ...baseInput, width:'auto', background:C.white }} />
+          </div>
+          <div>
+            <div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>고지서 종류</div>
+            <div style={{ display:'flex', background:C.white, border:`1px solid ${C.border}`, borderRadius:20, overflow:'hidden' }}>
+              {[['elec','⚡ 전기'],['water','💧 수도']].map(([v,label])=>(
+                <button key={v} onClick={()=>setDocType(v)} style={{ ...btn(docType===v?'active':'inactive'), borderRadius:0, height:34 }}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ alignSelf:'flex-end' }}>
+            <button onClick={()=>{ if(docFileRef.current){ docFileRef.current.value=''; docFileRef.current.click(); } }} style={btn('navyGhost')}>📁 파일 업로드</button>
+          </div>
+          {billDocs[docMonth]?.[docType] && (
+            <div style={{ alignSelf:'flex-end' }}>
+              <button onClick={()=>setImgModal(billDocs[docMonth][docType])} style={btn('secondary')}>🔍 현재 보기</button>
+            </div>
+          )}
+        </div>
+
+        {Object.keys(billDocs).filter(m=>billDocs[m]?.elec||billDocs[m]?.water).length===0 ? (
+          <div style={{ color:C.textHint, fontSize:13, textAlign:'center', padding:'24px 0' }}>업로드된 고지서가 없습니다.</div>
+        ) : (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(210px,1fr))', gap:12 }}>
+            {Object.entries(billDocs).filter(([,docs])=>docs?.elec||docs?.water).sort(([a],[b])=>b.localeCompare(a)).map(([month,docs])=>(
+              <div key={month} style={{ background:C.navyBg, borderRadius:12, padding:12, border:`1px solid ${C.navyBg2}` }}>
+                <div style={{ fontSize:13, fontWeight:700, color:C.navyDark, marginBottom:8 }}>{month.replace('-','년 ')}월</div>
+                <div style={{ display:'flex', gap:8 }}>
+                  {[['elec','⚡ 전기'],['water','💧 수도']].map(([type,label])=>(
+                    <div key={type} style={{ flex:1 }}>
+                      <div style={{ fontSize:11, color:C.textSub, marginBottom:4 }}>{label}</div>
+                      {docs[type] ? (
+                        <div style={{ position:'relative' }}>
+                          <img src={docs[type]} alt={label} style={{ width:'100%', height:75, objectFit:'cover', borderRadius:6, border:`1px solid ${C.border}`, cursor:'zoom-in', display:'block' }} onClick={()=>setImgModal(docs[type])} />
+                          <button onClick={()=>removeDoc(month,type)} style={{ position:'absolute', top:3, right:3, background:'rgba(0,0,0,0.55)', border:'none', color:'#fff', borderRadius:'50%', width:18, height:18, cursor:'pointer', fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>×</button>
+                        </div>
+                      ) : (
+                        <div style={{ width:'100%', height:75, borderRadius:6, border:`2px dashed ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', color:C.textHint, fontSize:11, cursor:'pointer' }}
+                          onClick={()=>{ setDocMonth(month); setDocType(type); if(docFileRef.current){ docFileRef.current.value=''; docFileRef.current.click(); } }}>+ 업로드</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div style={{ display:'flex', gap:10, alignItems:'center', marginTop:8 }}>
         <button onClick={onSave} style={btn('success')}>💾 히스토리 저장</button>
@@ -3502,23 +3706,6 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const [pw1,setPw1]=useState(''); const [pw2,setPw2]=useState(''); const [pwMsg,setPwMsg]=useState('');
   const [apw1,setApw1]=useState(''); const [apw2,setApw2]=useState(''); const [apwMsg,setApwMsg]=useState('');
   const [mpw1,setMpw1]=useState(''); const [mpw2,setMpw2]=useState(''); const [mpwMsg,setMpwMsg]=useState('');
-  const [userPws,setUserPws]=useState(()=>{
-    const overrides=store.get('tl_user_pw_overrides')||{};
-    const out={};
-    EXTRA_USERS_DEFAULTS.forEach(u=>{ out[u.id]=overrides[u.id]||u.pw; });
-    return out;
-  });
-  const [userPwMsg,setUserPwMsg]=useState('');
-  const saveUserPw=(id)=>{
-    const newPw=(userPws[id]||'').trim();
-    if(!newPw){ setUserPwMsg('⚠ 비밀번호를 입력하세요.'); setTimeout(()=>setUserPwMsg(''),3000); return; }
-    const overrides=store.get('tl_user_pw_overrides')||{};
-    overrides[id]=newPw;
-    store.set('tl_user_pw_overrides',overrides);
-    const u=EXTRA_USERS_DEFAULTS.find(x=>x.id===id);
-    setUserPwMsg(`✓ ${u.name} 비밀번호가 저장됐습니다.`);
-    setTimeout(()=>setUserPwMsg(''),3000);
-  };
   // Telegram
   const [tgToken,setTgToken]=useState(()=>store.get('tl_telegram_token')||'');
   const [tgAdmin,setTgAdmin]=useState(()=>store.get('tl_telegram_admin')||'');
@@ -3527,76 +3714,13 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const [tgMsg,setTgMsg]=useState('');
   // User name
   const [userName,setUserName]=useState(()=>store.get('tl_user_name')||'');
-  // Users (회원 관리)
-  const [users,setUsers]=useState(()=>store.get('tl_users')||[]);
-  const [newUser,setNewUser]=useState({name:'',role:'staff',password:''});
+  // 회원 승인 메시지
   const [usersMsg,setUsersMsg]=useState('');
   const [lt,setLt]=useState(tenants); const [tenantMsg,setTenantMsg]=useState('');
   const [apiKey,setApiKey]=useState(()=>store.get('tl_anthropic_key')||'');
   const [apiKeyMsg,setApiKeyMsg]=useState('');
-  const [toEmail,setToEmail]=useState(()=>tenants.filter(t=>t.email).map(t=>t.email).join(', '));
-  // 공과금 보관함
-  const [billDocs,setBillDocs]=useState(()=>store.get('tl_bill_docs')||{});
-  const [docMonth,setDocMonth]=useState(()=>{ const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`; });
-  const [docType,setDocType]=useState('elec');
-  const [docModal,setDocModal]=useState(null);
-  const docFileRef=useRef(null);
-
-  const handleDocUpload=async(e)=>{
-    const file=e.target.files[0]; if(!file) return;
-    const dataUrl=await compressImage(file); if(!dataUrl) return;
-    const next={...billDocs,[docMonth]:{...(billDocs[docMonth]||{}),[docType]:dataUrl}};
-    setBillDocs(next); store.set('tl_bill_docs',next);
-  };
-  const removeDoc=(month,type)=>{
-    const next={...billDocs,[month]:{...(billDocs[month]||{}),[type]:null}};
-    setBillDocs(next); store.set('tl_bill_docs',next);
-  };
-  // 백업/복원
-  const backupFileRef=useRef(null);
+  // 클라우드 백업/복원 상태
   const [bkMsg,setBkMsg]=useState('');
-  const handleExportBackup=()=>{
-    const data={};
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k&&k.startsWith('tl_')){
-        try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch{ data[k]=localStorage.getItem(k); }
-      }
-    }
-    const payload={ meta:{ app:'taelim-mgmt', exportedAt:new Date().toISOString(), version:1, count:Object.keys(data).length }, data };
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-    a.href=url; a.download=`taelim-backup-${ts}.json`; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    setBkMsg(`✓ ${Object.keys(data).length}개 항목 백업 완료`);
-    setTimeout(()=>setBkMsg(''),3500);
-  };
-  const handleImportBackup=(e)=>{
-    const file=e.target.files?.[0]; if(!file) return;
-    const reader=new FileReader();
-    reader.onload=(ev)=>{
-      try{
-        const obj=JSON.parse(ev.target.result);
-        const data=obj?.data||obj;
-        if(!data||typeof data!=='object') throw new Error('형식 오류');
-        const keys=Object.keys(data).filter(k=>k.startsWith('tl_'));
-        if(keys.length===0) throw new Error('유효한 백업 키가 없습니다');
-        if(!window.confirm(`백업의 ${keys.length}개 항목으로 현재 데이터를 덮어씌웁니다.\n계속하시겠습니까?`)) return;
-        keys.forEach(k=>{
-          const v=data[k];
-          try{ localStorage.setItem(k, typeof v==='string'?v:JSON.stringify(v)); }catch{}
-        });
-        setBkMsg('✓ 복원 완료 — 페이지를 새로고침합니다…');
-        setTimeout(()=>window.location.reload(),1200);
-      }catch(err){
-        setBkMsg('⚠ 복원 실패: '+err.message);
-        setTimeout(()=>setBkMsg(''),5000);
-      }
-    };
-    reader.readAsText(file);
-  };
   // ── 클라우드(Supabase) 백업/복원 ──
   const handleCloudBackup=async()=>{
     if(!window.confirm('현재 이 기기의 데이터를 클라우드에 업로드합니다.\n(다른 기기의 클라우드 데이터를 덮어씁니다)\n계속하시겠습니까?')) return;
@@ -3641,10 +3765,6 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
       setTimeout(()=>setBkMsg(''),7000);
     }
   };
-  const [emailSubject,setEmailSubject]=useState('');
-  const [emailBody,setEmailBody]=useState('');
-  const [emailMsg,setEmailMsg]=useState('');
-
   const changePw=()=>{
     if(!pw1){ setPwMsg('새 비밀번호를 입력하세요.'); return; }
     if(pw1!==pw2){ setPwMsg('비밀번호가 일치하지 않습니다.'); return; }
@@ -3653,35 +3773,6 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   };
   const upT=(i,f,v)=>setLt(lt.map((t,idx)=>idx===i?{...t,[f]:['name','fullName','email'].includes(f)?v:Number(v)}:t));
   const saveTenants=()=>{ setTenants(lt); setTenantMsg('✓ 저장됐습니다.'); setTimeout(()=>setTenantMsg(''),3000); };
-
-  const genTemplate=()=>{
-    const calc=calcAll(reading);
-    const billingMonth=getBillingMonth(reading.periodEnd);
-    const billingNo=getBillingNo(reading.periodEnd);
-    setEmailSubject(`[태림전자공업] ${billingMonth} 임대료 및 관리비 청구서`);
-    const lines=lt.map(t=>{
-      const fk=t.id==='wedgwood'?'w1':t.id==='taeha'?'t2':'y3';
-      const ef=calc.floorElec[fk]||0;
-      const wf=reading.waterCalc==='O'?(calc.waterCharges[fk]||0):0;
-      const mt=ef+wf+(t.mgmtFee!=null?t.mgmtFee:t.mgmtArea*2500)+(t.elevator||0);
-      const mv=Math.round(mt*0.1); const rv=Math.round(t.rent*0.1);
-      return `[${t.floor} ${t.fullName}]\n  임대료: ${fmt(t.rent)}원 (부가세 ${fmt(rv)}원)\n  관리비: ${fmt(mt)}원 (부가세 ${fmt(mv)}원)\n  합 계: ${fmt(t.rent+rv+mt+mv)}원`;
-    }).join('\n\n');
-    setEmailBody(`안녕하세요. 태림전자공업㈜입니다.\n\n${billingMonth} 임대료 및 관리비 청구서를 보내드립니다.\n첨부 파일을 확인하시고 지정 기일 내 납부 부탁드립니다.\n\n■ 청구번호: ${billingNo}\n■ 청구월: ${billingMonth}\n■ 적용기간: ${reading.periodStart} ~ ${reading.periodEnd}\n\n${lines}\n\n감사합니다.\n\n태림전자공업㈜\n${CO_ADDR}\nTel: ${CO_TEL} / Fax: ${CO_FAX}`);
-    // 이메일 수신자 자동 채우기
-    const emails=lt.filter(t=>t.email).map(t=>t.email).join(', ');
-    if(emails) setToEmail(emails);
-  };
-
-  const handleSend=()=>{
-    const addrs=toEmail.split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
-    if(!addrs.length){ setEmailMsg('수신자 이메일을 입력해주세요.'); setTimeout(()=>setEmailMsg(''),3000); return; }
-    const unique=[...new Set(addrs)].join(',');
-    const to=encodeURIComponent(unique);
-    const su=encodeURIComponent(emailSubject);
-    const body2=encodeURIComponent(emailBody);
-    window.open(`https://mail.google.com/mail/?view=cm&to=${to}&su=${su}&body=${body2}`,'_blank');
-  };
 
   const changeAdminPw=()=>{
     if(!apw1){ setApwMsg('새 비밀번호를 입력하세요.'); return; }
@@ -3731,16 +3822,6 @@ function SettingsPage({ savedPassword, setSavedPassword, adminPw, setAdminPw, ma
   const changeUserRole=async(uid,newRole)=>{
     await updateDoc(doc(db,'users',uid),{role:newRole});
   };
-
-  const addUser=()=>{
-    if(!newUser.name.trim()||!newUser.password.trim()){ setUsersMsg('⚠ 이름과 비밀번호를 입력하세요.'); setTimeout(()=>setUsersMsg(''),3000); return; }
-    const u={id:Date.now(),name:newUser.name.trim(),role:newUser.role,password:newUser.password,approved:true,createdAt:new Date().toISOString()};
-    const next=[...users,u];
-    setUsers(next); store.set('tl_users',next);
-    setNewUser({name:'',role:'staff',password:''});
-    setUsersMsg('✓ 사용자가 추가됐습니다.'); setTimeout(()=>setUsersMsg(''),3000);
-  };
-  const deleteUser=(id)=>{ const next=users.filter(u=>u.id!==id); setUsers(next); store.set('tl_users',next); };
 
   const FL=({text})=><div style={{ fontSize:11.5, color:C.textSub, marginBottom:5, fontWeight:500 }}>{text}</div>;
 

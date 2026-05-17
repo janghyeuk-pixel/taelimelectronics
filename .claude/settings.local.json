@@ -43,7 +43,20 @@
       "Bash(dir /B *.rules)",
       "Bash(curl -s -I https://taelim.co)",
       "Bash(curl -s https://taelim.co)",
-      "Bash(curl -s \"https://taelim.co/assets/index-DqKijfip.js\")"
+      "Bash(curl -s \"https://taelim.co/assets/index-DqKijfip.js\")",
+      "Bash(dir vite.config.*)",
+      "Bash(dir vercel.json)",
+      "WebFetch(domain:worksmobile.com)",
+      "WebSearch",
+      "Bash(findstr /i \"home main dashboard\")",
+      "Bash(npx eslint *)",
+      "Bash(tee dev.log)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)",
+      "Bash(git ls-files *)",
+      "Bash(rm -f \"C:UsersjanghAppDataLocalTempappdiff.txt\")",
+      "Bash(rm -f \"C\\\\\\\\UsersjanghAppDataLocalTempappdiff.txt\")",
+      "Bash(ls C\\\\\\\\*)"
     ]
   }
 }
