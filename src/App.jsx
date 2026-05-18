@@ -291,7 +291,7 @@ function calcAll(reading) {
   const elecDetail = {elecPerFloor,powerFundPerFloor,safetyPerFloor,netElecFee,elecUsageFee};
   let waterCharges={w1:0,t2:0,y3:0};
   let waterDetail={usage:{w1:0,t2:0,y3:0,o4:0},totalUsage:0,basicPerFloor:0,netWaterFee:0};
-  if (reading.waterCalc==='O') {
+  if (reading.waterCalc==='O' && reading.water && reading.waterBill && reading.water.w1 && reading.water.t2 && reading.water.y3 && reading.water.o4) {
     const wu={w1:reading.water.w1.curr-reading.water.w1.prev, t2:reading.water.t2.curr-reading.water.t2.prev, y3:reading.water.y3.curr-reading.water.y3.prev, o4:reading.water.o4.curr-reading.water.o4.prev};
     const totalWater=wu.w1+wu.t2+wu.y3+wu.o4;
     const basicPerFloor=Math.round(reading.waterBill.basicFee/4);
@@ -2191,6 +2191,7 @@ function InvoicePage({ reading, tenants, calc }) {
   const _sans    = "system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif";
   const _ink     = '#1a1a1a';
   const _sub     = '#6e6a64';
+  const _hair    = '#d9d6cf';
   const _billingMonth = getBillingMonth(reading.periodEnd);
 
   return (
